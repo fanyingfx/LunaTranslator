@@ -90,7 +90,7 @@ class simplehooks(Structure):
 
 class texthook(basetext):
     def __init__(
-        self, pids, hwnd, pname, autostarthookcode=None, needinserthookcode=None
+            self, pids, hwnd, pname, autostarthookcode=None, needinserthookcode=None
     ):
         if autostarthookcode is None:
             autostarthookcode = []
@@ -126,8 +126,8 @@ class texthook(basetext):
 
         gobject.baseobject.hookselectdialog.changeprocessclearsignal.emit()
         if (
-            len(autostarthookcode) == 0
-            and len(savehook_new_data[self.pname]["embedablehook"]) == 0
+                len(autostarthookcode) == 0
+                and len(savehook_new_data[self.pname]["embedablehook"]) == 0
         ):
             gobject.baseobject.hookselectdialog.realshowhide.emit(True)
 
@@ -275,7 +275,7 @@ class texthook(basetext):
                 return True
             for regex in globalconfig["embedded"]["safecheckregexs"]:
                 if re.match(
-                    codecs.escape_decode(bytes(regex, "utf-8"))[0].decode("utf-8"), text
+                        codecs.escape_decode(bytes(regex, "utf-8"))[0].decode("utf-8"), text
                 ):
                     return False
             return True
@@ -283,6 +283,7 @@ class texthook(basetext):
             return False
 
     def getembedtext(self, text, tp):
+        text = text.replace('\\n', '')
         if self.safeembedcheck(text) == False:
             self.embedcallback(text, text)
             self.newline.put((text, True, lambda trans: 1, True))
@@ -343,8 +344,8 @@ class texthook(basetext):
             autostarthookcode[5],
         )
         name = (
-            key[-1][:8] == "UserHook" and autostarthookcode[-1][:8] == "UserHook"
-        ) or (key[-1] == autostarthookcode[-1])
+                       key[-1][:8] == "UserHook" and autostarthookcode[-1][:8] == "UserHook"
+               ) or (key[-1] == autostarthookcode[-1])
         return base and name
 
     def onnewhook(self, hc, hn, tp):
