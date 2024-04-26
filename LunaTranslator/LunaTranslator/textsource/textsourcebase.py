@@ -148,3 +148,4 @@ class basetext:
         t = self.gettextonce()
         if t:
             self.textgetmethod(self.gettextonce(), False)
+        # globalconfig["showfanyi"] = False

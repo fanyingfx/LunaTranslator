@@ -378,6 +378,10 @@ class MAINUI:
             if iter_res_status:
                 displayreskwargs.update(iter_context=(iter_res_status, classname))
             self.translation_ui.displayres.emit(displayreskwargs)
+            if 'showfanyi_value' in globalconfig:
+                globalconfig['showfanyi'] = globalconfig['showfanyi_value']
+                globalconfig.pop('showfanyi_value')
+            # globalconfig["showfanyi"] = globalconfig.get("showfanyi_value",True)
 
         if iter_res_status in (0, 2):  # 0为普通，1为iter，2为iter终止，3为起始
             try:

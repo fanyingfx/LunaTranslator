@@ -409,7 +409,7 @@ class QUnFrameWindow(resizableframeless):
 
         functions = (
             ("move", None),
-            ("retrans", self.startTranslater),
+            ("retrans", self.reStartTranslater),
             ("automodebutton", self.changeTranslateMode),
             ("setting", lambda: gobject.baseobject.settin_ui.showsignal.emit()),
             (
@@ -872,6 +872,11 @@ class QUnFrameWindow(resizableframeless):
 
     def langdu(self):
         gobject.baseobject.readcurrent(force=True)
+    def reStartTranslater(self):
+        globalconfig["showfanyi_value"]=globalconfig["showfanyi"]
+        globalconfig["showfanyi"] = True
+        if gobject.baseobject.textsource:
+            gobject.baseobject.textsource.runonce()
 
     def startTranslater(self):
         if gobject.baseobject.textsource:

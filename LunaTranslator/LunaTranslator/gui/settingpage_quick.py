@@ -18,7 +18,7 @@ def setTab_quick_direct(self):
         "_A": lambda: gobject.baseobject.settin_ui.clicksourcesignal.emit("copy"),
         "_B": lambda: gobject.baseobject.settin_ui.clicksourcesignal.emit("ocr"),
         "_C": lambda: gobject.baseobject.settin_ui.clicksourcesignal.emit("texthook"),
-        "_1": gobject.baseobject.translation_ui.startTranslater,
+        "_1": gobject.baseobject.translation_ui.reStartTranslater,
         "_2": gobject.baseobject.translation_ui.changeTranslateMode,
         "_3": self.showsignal.emit,
         "_4": lambda: winsharedutils.clipboard_set(gobject.baseobject.currenttext),
