@@ -1,32 +1,40 @@
 from myutils.config import globalconfig
 import winsharedutils
 import os
+import re
+import itertools
+
+
+def is_kana(input_str):
+    katakana_pattern = re.compile("[\u3040-\u309F\u30A0-\u30FF]+")
+    return bool(katakana_pattern.fullmatch(input_str))
 
 
 class hira:
     def __init__(self) -> None:
         hirasettingbase = globalconfig["hirasetting"]
-
         mecabpath = hirasettingbase["mecab"]["path"]
         if os.path.exists(mecabpath):
             self.kks = winsharedutils.mecabwrap(
                 mecabpath
-            )  #  fugashi.Tagger('-r nul -d "{}" -Owakati'.format(mecabpath))
+            )  # fugashi.Tagger('-r nul -d "{}" -Owakati'.format(mecabpath))
 
     def fy(self, text):
         start = 0
         result = []
         codec = ["utf8", "shiftjis"][globalconfig["hirasetting"]["mecab"]["codec"]]
         for node, fields in self.kks.parse(
-            text, codec
+                text, codec
         ):  # self.kks.parseToNodeList(text):
             kana = ""
             pos1 = ""
             origorig = None
             if len(fields):
                 pos1 = fields[0]
-                if len(fields) > 29:
-                    kana = fields[22]
+                if len(fields) > 12 and fields[12] == "外":
+                    kana = fields[7].split("-")[-1]
+                elif len(fields) > 29:
+                    kana = next(filter(is_kana, (fields[i] for i in (22, 23, 24))), "")
                 elif len(fields) == 29:
                     kana = fields[20]
                 elif 29 > len(fields) >= 26:
@@ -43,9 +51,9 @@ class hira:
             l = 0
             if text[start] == "\n":
                 start += 1
-            while str(node) not in text[start : start + l]:
+            while str(node) not in text[start: start + l]:
                 l += 1
-            orig = text[start : start + l]
+            orig = text[start: start + l]
             if origorig is None:
                 origorig = orig
             start += l
