@@ -9,7 +9,12 @@ from PyQt5.QtGui import (
     QColor,
     QFontMetricsF,
 )
-from PyQt5.QtWidgets import QTextBrowser, QLabel, QGraphicsDropShadowEffect
+from PyQt5.QtWidgets import (
+    QTextBrowser,
+    QLabel,
+    QGraphicsDropShadowEffect,
+    QApplication,
+)
 import functools
 from myutils.config import globalconfig
 from traceback import print_exc
@@ -194,10 +199,6 @@ class Textbrowser:
         self.textbrowser.resize(int(_1), int(_2))
         self.textbrowserback.resize(int(_1), int(_2))
 
-    def clear(self):
-        self.clear()
-        self.blockcount = 0
-
     def setnextfont(self, origin):
         self.textbrowser.moveCursor(QTextCursor.End)
         self.textbrowserback.moveCursor(QTextCursor.End)
@@ -225,21 +226,21 @@ class Textbrowser:
         else:
             self.align = False
 
-    def append(self, x, tag, origin):
+    def append(self, x, tag, color):
 
         if self.cleared:
             _space = ""
             self.blockcount = 0
-            self.b1 = 0
+            b1 = 0
         else:
             _space = "\n"
-            self.b1 = self.textbrowser.document().blockCount()
+            b1 = self.textbrowser.document().blockCount()
         self.cleared = False
         if self.needdouble:
             self.textbrowserback.insertPlainText(_space + x)
         self.textbrowser.insertPlainText(_space + x)
 
-        self.b2 = self.textbrowser.document().blockCount()
+        b2 = self.textbrowser.document().blockCount()
 
         if True:  # self.addtaged:
             if self.addtaged:
@@ -263,6 +264,16 @@ class Textbrowser:
             self.addtag(tag)
 
         self.movep(0, self.savey)
+
+        if globalconfig["zitiyangshi"] == 3:
+            self.textbrowser.show()
+            self.textbrowserback.show()
+            self.showyinyingtext(color, b1, b2)
+            self.textbrowser.hide()
+            self.textbrowserback.hide()
+        else:
+            self.textbrowser.show()
+            self.textbrowserback.show()
 
     def getcurrpointer(self):
         return self.textcursor.position()
@@ -357,17 +368,13 @@ class Textbrowser:
                     if label.pos().y() > maxh:
                         label.move(label.pos().x(), label.pos().y() + maxnewh - maxh)
 
-    def showyinyingtext(self, color):
-
+    def showyinyingtext(self, color, b1, b2):
         linei = self.yinyingposline
 
         doc = self.textbrowser.document()
         block = doc.findBlockByNumber(0)
 
-        start = self.b1
-        end = self.b2
-
-        for blocki in range(start, end):
+        for blocki in range(b1, b2):
             block = doc.findBlockByNumber(blocki)
             layout = block.layout()
             blockstart = block.position()
@@ -381,7 +388,7 @@ class Textbrowser:
                 self.textcursor.setPosition(blockstart + s)
                 self.textbrowser.setTextCursor(self.textcursor)
                 tl1 = self.textbrowser.cursorRect(self.textcursor).topLeft()
-                # print(tl1)
+                
                 if (lc + linei) > len(self.yinyinglabels):
                     _newlabels = [
                         QLabel(self.toplabel2)
@@ -393,13 +400,9 @@ class Textbrowser:
 
                 index = linei
                 _ = self.yinyinglabels[index]
-                if self.align:
-                    _.setAlignment(Qt.AlignCenter)
-                    _.move(0,tl1.y())
-                    _.setFixedWidth(self.textbrowser.width())
-                else:
-                    _.setAlignment(Qt.AlignLeft)
-                    _.move(tl1)
+
+                _.setAlignment(Qt.AlignLeft)
+                _.move(tl1)
                 _.setText(block.text()[s : s + l])
                 _.setFont(self.textbrowser.currentCharFormat().font())
 

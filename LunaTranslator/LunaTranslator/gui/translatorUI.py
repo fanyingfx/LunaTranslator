@@ -11,11 +11,12 @@ from PyQt5.QtCore import pyqtSignal, Qt, QSize
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QLabel, QPushButton, QSystemTrayIcon
 import gobject
-from myutils.wrapper import threader
+from myutils.wrapper import threader, trypass
 import winsharedutils
 from myutils.config import globalconfig, saveallconfig, _TR, static_data
 from myutils.subproc import endsubprocs
 from myutils.ocrutil import ocr_run, imageCut
+from myutils.utils import loadpostsettingwindowmethod
 from myutils.hwnd import mouseselectwindow, grabwindow, getExeIcon
 from gui.dialog_savedgame import dialog_savedgame_new
 from gui.dialog_memory import dialog_memory
@@ -121,10 +122,14 @@ class QUnFrameWindow(resizableframeless):
             _res = text[: globalconfig["maxoriginlength"]] + "……"
         else:
             _res = text
-        if globalconfig["isshowhira"] and globalconfig["isshowrawtext"]:
-            self.showline(clear=clear, text=_res, hira=True, color=color)
-        elif globalconfig["isshowrawtext"]:
-            self.showline(clear=clear, text=_res, color=color)
+        if globalconfig["isshowrawtext"]:
+            hira = (
+                globalconfig["isshowhira"]
+                or globalconfig["usesearchword"]
+                or globalconfig["usecopyword"]
+                or globalconfig["show_fenci"]
+            )
+            self.showline(clear=clear, text=_res, hira=hira, color=color)
         else:
             self.showline(clear=clear)
 
@@ -262,14 +267,11 @@ class QUnFrameWindow(resizableframeless):
                 )
 
         else:
-            self.translate_text.append(text, hira, origin)
-            if globalconfig["zitiyangshi"] == 3:
-                self.translate_text.showyinyingtext(color)
-        if (
-            globalconfig["usesearchword"]
-            or globalconfig["usecopyword"]
-            or globalconfig["show_fenci"]
-        ) and hira:
+            self.translate_text.append(
+                text, hira if globalconfig["isshowhira"] else [], color
+            )
+
+        if hira:
 
             def callback(word):
                 if globalconfig["usewordorigin"] == False:
@@ -383,6 +385,7 @@ class QUnFrameWindow(resizableframeless):
         def ocroncefunction(rect):
             img = imageCut(0, rect[0][0], rect[0][1], rect[1][0], rect[1][1])
             fname = "./cache/ocr/once.png"
+            os.makedirs("./cache/ocr", exist_ok=True)
             img.save(fname)
             text = ocr_run(fname)
             gobject.baseobject.textgetmethod(text, False)
@@ -419,8 +422,18 @@ class QUnFrameWindow(resizableframeless):
             ("edit", lambda: gobject.baseobject.edittextui.showsignal.emit()),
             ("showraw", self.changeshowhideraw),
             ("history", lambda: gobject.baseobject.transhis.showsignal.emit()),
-            ("noundict", lambda: gobject.baseobject.settin_ui.button_noundict.click()),
-            ("fix", lambda: gobject.baseobject.settin_ui.button_fix.click()),
+            (
+                "noundict",
+                lambda: loadpostsettingwindowmethod("noundict")(
+                    gobject.baseobject.settin_ui
+                ),
+            ),
+            (
+                "fix",
+                lambda: loadpostsettingwindowmethod("transerrorfix")(
+                    gobject.baseobject.settin_ui
+                ),
+            ),
             ("langdu", self.langdu),
             ("mousetransbutton", lambda: self.changemousetransparentstate(0)),
             ("backtransbutton", lambda: self.changemousetransparentstate(1)),
@@ -480,7 +493,8 @@ class QUnFrameWindow(resizableframeless):
             (
                 "open_relative_link",
                 lambda: browserdialog(
-                    gobject.baseobject.settin_ui, gobject.baseobject.textsource
+                    gobject.baseobject.settin_ui,
+                    trypass(lambda: gobject.baseobject.textsource.pname)(),
                 ),
             ),
             (
@@ -743,16 +757,16 @@ class QUnFrameWindow(resizableframeless):
             # self.refreshtoolicon()
             skip = False
             if (self.fullscreenmanager is None) or (
-                self.fullscreenmethod != globalconfig["fullscreenmethod_3"]
+                self.fullscreenmethod != globalconfig["fullscreenmethod_4"]
             ):
 
-                self.fullscreenmethod = globalconfig["fullscreenmethod_3"]
+                self.fullscreenmethod = globalconfig["fullscreenmethod_4"]
 
                 if self.fullscreenmanager:
                     skip = self.fullscreenmanager.endX()
                 self.fullscreenmanager = importlib.import_module(
                     "scalemethod."
-                    + static_data["scalemethods"][globalconfig["fullscreenmethod_3"]]
+                    + static_data["scalemethods"][globalconfig["fullscreenmethod_4"]]
                 ).Method(self._externalfsend)
             if skip:
                 return
@@ -858,7 +872,14 @@ class QUnFrameWindow(resizableframeless):
             return
         newHeight = self.document.size().height()
         width = self.width()
-        self.resize(width, int(5 + newHeight + globalconfig["buttonsize"] * 1.5))
+        self.resize(
+            width,
+            int(
+                max(0, -globalconfig["extra_space"])
+                + newHeight
+                + globalconfig["buttonsize"] * 1.5
+            ),
+        )
 
     def clickRange(self, auto):
         if globalconfig["sourcestatus2"]["ocr"]["use"] == False:

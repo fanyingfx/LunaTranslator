@@ -569,7 +569,6 @@
     "使用说明": "Instructions d'utilisation",
     "注册地址": "Adresse enregistrée",
     "API接口地址": "Adresse de l'interface API",
-    "当前路径读写权限不足，请使用管理员权限运行！": "Le chemin actuel n'a pas les droits de lecture et d'écriture suffisants, exécutez - le avec les droits d'administrateur!",
     "通用文字识别（标准版）": "Reconnaissance de texte universelle (version standard)",
     "通用文字识别（标准含位置版）": "Reconnaissance de texte universelle (version standard avec emplacement)",
     "通用文字识别（高精度版）": "Reconnaissance de texte universelle (version haute précision)",
@@ -648,7 +647,6 @@
     "Github仓库": "Entrepôt github",
     "利用上文信息翻译（通常会有一定的效果提升，但会导致变慢）": "Utilisez les informations ci - dessus pour traduire (il y a généralement une certaine augmentation de l'effet, mais cela entraîne un ralentissement)",
     "文本缓冲区长度": "Longueur du tampon de texte",
-    "显示/隐藏历史翻译和调试输出": "Afficher / masquer la traduction historique et la sortie de débogage",
     "历史翻译和调试输出": "Traduction historique et sortie de débogage",
     "调试输出": "Sortie de débogage",
     "显示翻译": "Afficher la traduction",
@@ -675,7 +673,6 @@
     "缩放方式": "Mode de zoom",
     "缩放/恢复游戏窗口": "Zoom / restaurer la fenêtre de jeu",
     "打开关联页面": "Ouvrir la page associée",
-    "添加关联页面": "Ajouter une page associée",
     "页面类型": "Type de page",
     "页面链接": "Liens vers les pages",
     "缓存": "Cache",
@@ -689,7 +686,6 @@
     "获取最新提取器核心&错误反馈&游戏支持": "Obtenez le dernier extractor Core & BUG Feedback & Game support",
     "外部缩放软件": "Logiciel de zoom externe",
     "Hook Magpie进程使其不会退出缩放": "Le processus Hook Magpie ne quitte pas le zoom",
-    "Hook LosslessScaling进程使其不会退出缩放": "Hook losslesscaling processus pour ne pas quitter le zoom",
     "保持非重复字符": "Garder les caractères non répétitifs",
     "选择文本窗口中文本框只读": "Sélectionner une zone de texte en lecture seule dans la fenêtre de texte",
     "多重区域模式": "Mode Multi - zones",
@@ -765,5 +761,9 @@
     "右移": "Déplacement à droite",
     "启动游戏不修改顺序": "Lancer le jeu sans modifier l'ordre",
     "使用自定义优化": "Utiliser l'optimisation personnalisée",
-    "游戏管理": "Gestion des jeux"
+    "游戏管理": "Gestion des jeux",
+    "显示标题": "Afficher le titre",
+    "收藏": "Collections",
+    "名称": "Le nom",
+    "网址": "Adresse Web"
 }

@@ -1,9 +1,4 @@
-#include <iostream>
-#include <windows.h>
-#include <thread>
-#include <detours.h>
-#include <string>
-#include <assert.h>
+
 #include "veh_hook.h"
 namespace Win32Utils
 {
@@ -196,36 +191,10 @@ void starthookmagpie()
     // DetourAttach(&(PVOID&)IsValidSrcWindow,IsValidSrcWindow_hooked);
     // DetourTransactionCommit();
 }
-
-auto GetClassNameWs = GetClassNameW;
-int
-    WINAPI
-    GetClassNameWH(
-        _In_ HWND hWnd,
-        _Out_writes_to_(nMaxCount, return) LPWSTR lpClassName,
-        _In_ int nMaxCount)
-{
-    if (checkislunawindow(hWnd))
-    {
-        wcscpy(lpClassName, L"ApplicationManager_ImmersiveShellWindow");
-        return TRUE;
-    }
-    else
-        return GetClassNameWs(hWnd, lpClassName, nMaxCount);
-}
-void starthooklossless()
-{
-    DetourTransactionBegin();
-    DetourUpdateThread(GetCurrentThread());
-    DetourAttach(&(PVOID &)GetClassNameWs, GetClassNameWH);
-    DetourTransactionCommit();
-}
 void starthook()
 {
     if (GetModuleHandle(L"Magpie.App.dll"))
         starthookmagpie();
-    else if (GetModuleHandle(L"Lossless.dll"))
-        starthooklossless();
 }
 BOOL APIENTRY DllMain(HMODULE hModule,
                       DWORD ul_reason_for_call,

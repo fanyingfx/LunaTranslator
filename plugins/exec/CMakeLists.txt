@@ -1,13 +1,25 @@
 
 project(LUNA)
 
-   
-add_executable(LunaTranslator luna.cpp luna.rc) 
-#target_link_options(LunaTranslator PRIVATE /MANIFESTUAC:level="asInvoker")
+option(PYSTAND_CONSOLE "Build PyStand as a console application." OFF)
 
-add_executable(LunaTranslator_admin luna.cpp luna.rc)
+
+generate_product_version(
+   versioninfo
+   NAME "LunaTranslator"
+   COMPANY_COPYRIGHT "HIllya51 (C) 2024"
+   VERSION_MAJOR ${VERSION_MAJOR}
+   VERSION_MINOR ${VERSION_MINOR}
+   VERSION_PATCH ${VERSION_PATCH}
+)
+
+set(sources PyStand.cpp luna.rc ${versioninfo})
+
+add_executable(LunaTranslator_debug ${sources})
+target_compile_definitions(LunaTranslator_debug PRIVATE PYSTAND_CONSOLE)
+add_executable(LunaTranslator WIN32 ${sources})
+add_executable(LunaTranslator_admin WIN32 ${sources})
 set_target_properties(LunaTranslator_admin PROPERTIES LINK_FLAGS " /MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\" ")
-
-#target_link_options(LunaTranslator_admin PRIVATE /MANIFESTUAC:level="requireAdministrator")
-#这个仅在visualstdio下管用，vscode cmake不管用了。
- 
+target_precompile_headers(LunaTranslator_debug REUSE_FROM pch) 
+target_precompile_headers(LunaTranslator_admin REUSE_FROM pch) 
+target_precompile_headers(LunaTranslator REUSE_FROM pch)

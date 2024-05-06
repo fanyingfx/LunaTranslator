@@ -1,11 +1,8 @@
-import os, sys
-import shutil
+import os, sys, re
+import shutil, json
 import subprocess
-import requests
+import urllib.request
 
-msbuildPath = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\MSBuild\\Current\\Bin\\MSBuild.exe"
-vcvars32Path = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\VC\\Auxiliary\\Build\\vcvars32.bat"
-vcvars64Path = "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\VC\\Auxiliary\\Build\\vcvars64.bat"
 
 pluginDirs = ["DLL32", "DLL64", "Locale_Remulator", "LunaHook", "Magpie", "NTLEAS"]
 
@@ -29,6 +26,9 @@ ocrModelUrl = "https://github.com/HIllya51/RESOURCES/releases/download/ocr_model
 availableLocales = ["cht", "en", "ja", "ko", "ru", "zh"]
 
 
+# rootDir = os.path.dirname(os.path.abspath(__file__))
+# print(__file__)
+# print(rootDir)
 rootDir = os.path.dirname(__file__)
 
 
@@ -70,12 +70,31 @@ def downloadBrotli():
     )
 
 
+def downloadlr():
+
+    for ass in get_url_as_json(
+        "https://api.github.com/repos/InWILL/Locale_Remulator/releases/latest"
+    )["assets"]:
+        if "browser_download_url" in ass:
+            os.chdir(rootDir + "\\temp")
+            subprocess.run(f"curl -LO {ass['browser_download_url']}")
+            subprocess.run(f"7z x {ass['name']} -oLR")
+            os.makedirs(
+                f"{rootDir}/LunaTranslator/files/plugins/Locale_Remulator",
+                exist_ok=True,
+            )
+            for _dir, _, _fs in os.walk("LR"):
+                for f in _fs:
+                    if f in ["LRHookx64.dll", "LRHookx32.dll"]:
+                        shutil.move(
+                            os.path.join(_dir, f),
+                            f"{rootDir}/LunaTranslator/files/plugins/Locale_Remulator",
+                        )
+
+
 def downloadcommon():
     os.chdir(rootDir + "\\temp")
-    subprocess.run(
-        f"curl -LO https://github.com/HIllya51/RESOURCES/releases/download/common/lr.zip"
-    )
-    subprocess.run(f"7z x lr.zip -oALL")
+    downloadlr()
     subprocess.run(
         f"curl -LO https://github.com/HIllya51/RESOURCES/releases/download/common/mecab.zip"
     )
@@ -84,10 +103,6 @@ def downloadcommon():
         f"curl -LO https://github.com/HIllya51/RESOURCES/releases/download/common/ocr.zip"
     )
     subprocess.run(f"7z x ocr.zip -oALL")
-    subprocess.run(
-        f"curl -LO https://github.com/HIllya51/RESOURCES/releases/download/common/webview.zip"
-    )
-    subprocess.run(f"7z x webview.zip -oALL")
     subprocess.run(
         f"curl -LO https://github.com/HIllya51/RESOURCES/releases/download/common/magpie.zip"
     )
@@ -167,10 +182,18 @@ def downloadOCRModel(locale):
     os.remove(f"{locale}.zip")
 
 
+def get_url_as_json(url):
+    response = urllib.request.urlopen(url)
+    data = response.read().decode("utf-8")
+    json_data = json.loads(data)
+
+    return json_data
+
+
 def buildLunaHook():
-    for ass in requests.get(
+    for ass in get_url_as_json(
         "https://api.github.com/repos/HIllya51/LunaHook/releases/latest"
-    ).json()["assets"]:
+    )["assets"]:
         if ass["name"] == "Release_English.zip":
             os.chdir(rootDir + "\\temp")
             subprocess.run(f"curl -LO {ass['browser_download_url']}")
@@ -212,53 +235,43 @@ def buildPlugins():
 
 
 if __name__ == "__main__":
+    if sys.argv[1] == "loadversion":
+        os.chdir(rootDir)
+        with open("plugins/CMakeLists.txt", "r", encoding="utf8") as ff:
+            pattern = r"set\(VERSION_MAJOR\s*(\d+)\s*\)\nset\(VERSION_MINOR\s*(\d+)\s*\)\nset\(VERSION_PATCH\s*(\d+)\s*\)"
+            match = re.findall(pattern, ff.read())[0]
+            version_major, version_minor, version_patch = match
+            versionstring = f"v{version_major}.{version_minor}.{version_patch}"
+            print("version=" + versionstring)
+            exit()
     arch = sys.argv[1]
+    isdebug = len(sys.argv) > 2 and int(sys.argv[2])
     os.chdir(rootDir)
     os.makedirs("temp", exist_ok=True)
 
     createPluginDirs()
 
-    def __1():
-        downloadBrotli()
-        downloadLocaleEmulator()
-        downloadNtlea()
-        downloadCurl()
-        downloadOCRModel("ja")
-        downloadcommon()
-        buildLunaHook()
+    downloadBrotli()
+    downloadLocaleEmulator()
+    downloadNtlea()
+    downloadCurl()
+    downloadOCRModel("ja")
+    downloadcommon()
+    buildLunaHook()
 
-    def __2():
-        installVCLTL()
-        buildPlugins()
+    installVCLTL()
+    buildPlugins()
 
-    def __3():
-        os.chdir(rootDir)
-    
-        py37Path32 = "C:\\hostedtoolcache\\windows\\Python\\3.7.9\\x86\\python.exe"
-        py37Path64 = "C:\\hostedtoolcache\\windows\\Python\\3.7.9\\x64\\python.exe"
+    os.chdir(rootDir)
 
-        if arch == "x86":
-            subprocess.run(f"{py37Path32} -m pip install --upgrade pip")
-        else:
-            subprocess.run(f"{py37Path64} -m pip install --upgrade pip")
-
-        os.chdir(rootDir + "\\LunaTranslator")
-
-        if arch == "x86":
-            subprocess.run(f"{py37Path32} -m pip install -r requirements.txt")
-            subprocess.run(
-                f"{py37Path32} -m nuitka --standalone --assume-yes-for-downloads --windows-disable-console --plugin-enable=pyqt5 --output-dir=..\\build\\x86 LunaTranslator\\LunaTranslator_main.py --windows-icon-from-ico=..\\plugins\\exec\\luna.ico"
-            )
-        else:
-            subprocess.run(f"{py37Path64} -m pip install -r requirements.txt")
-            subprocess.run(
-                f"{py37Path64} -m nuitka --standalone --assume-yes-for-downloads --windows-disable-console --plugin-enable=pyqt5 --output-dir=..\\build\\x64 LunaTranslator\\LunaTranslator_main.py --windows-icon-from-ico=..\\plugins\\exec\\luna.ico"
-            )
-
-    __1()
-    __2()
-    __3()
     if arch == "x86":
-        subprocess.run(f"cmd /c pack32.cmd")
+        py37Path = "C:\\hostedtoolcache\\windows\\Python\\3.7.9\\x86\\python.exe"
     else:
-        subprocess.run(f"cmd /c pack64.cmd")
+        py37Path = "C:\\hostedtoolcache\\windows\\Python\\3.7.9\\x64\\python.exe"
+
+    os.chdir(rootDir + "\\LunaTranslator")
+
+    subprocess.run(f"{py37Path} -m pip install --upgrade pip")
+    subprocess.run(f"{py37Path} -m pip install -r requirements.txt")
+
+    subprocess.run(f'{py37Path} retrieval.py {int(arch == "x86")}')

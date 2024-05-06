@@ -569,7 +569,6 @@
     "使用说明": "Instructions for use",
     "注册地址": "Company Registered Address",
     "API接口地址": "API interface address",
-    "当前路径读写权限不足，请使用管理员权限运行！": "The current path has insufficient read and write permissions. Please run with administrator privileges!",
     "通用文字识别（标准版）": "Universal Text Recognition (Standard Edition)",
     "通用文字识别（标准含位置版）": "Universal text recognition (standard with positional version)",
     "通用文字识别（高精度版）": "Universal Text Recognition (High Precision Edition)",
@@ -648,7 +647,6 @@
     "Github仓库": "Github warehouse",
     "利用上文信息翻译（通常会有一定的效果提升，但会导致变慢）": "Translate using the information provided in the previous text (usually with some improvement in effectiveness, but it can lead to slower translation)",
     "文本缓冲区长度": "Text buffer length",
-    "显示/隐藏历史翻译和调试输出": "Show/hide historical translation and debugging output",
     "历史翻译和调试输出": "Historical translation and debugging output",
     "调试输出": "Debugging output",
     "显示翻译": "Display translation",
@@ -675,7 +673,6 @@
     "缩放方式": "Zoom method",
     "缩放/恢复游戏窗口": "Zoom/Restore Game Window",
     "打开关联页面": "Open the associated page",
-    "添加关联页面": "Add associated page",
     "页面类型": "Page Type",
     "页面链接": "Page Link",
     "缓存": "cache",
@@ -689,7 +686,6 @@
     "获取最新提取器核心&错误反馈&游戏支持": "Get the latest extractor core&error feedback&game support",
     "外部缩放软件": "External scaling software",
     "Hook Magpie进程使其不会退出缩放": "Hook Magpie process prevents it from exiting scaling",
-    "Hook LosslessScaling进程使其不会退出缩放": "Hook LosslessScaling process prevents it from exiting scaling",
     "保持非重复字符": "Keep non repeating characters",
     "选择文本窗口中文本框只读": "Select read-only text boxes in the text window",
     "多重区域模式": "Multi region mode",
@@ -765,5 +761,9 @@
     "右移": "Right shift",
     "启动游戏不修改顺序": "Start the game without changing the order",
     "使用自定义优化": "Use custom optimization",
-    "游戏管理": "Game Management"
+    "游戏管理": "Game Management",
+    "显示标题": "show heading",
+    "收藏": "collection",
+    "名称": "name",
+    "网址": "Website"
 }

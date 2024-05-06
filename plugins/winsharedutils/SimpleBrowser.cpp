@@ -8,21 +8,6 @@
 // This file is public domain software.
 
 #define _CRT_SECURE_NO_WARNINGS
-#include <windows.h>
-#include <windowsx.h>
-#include <commctrl.h>
-#include <commdlg.h>
-#include <mmsystem.h>
-#include <shlobj.h>
-#include <shlwapi.h>
-#include <mshtml.h>
-#include <string>
-#include <cctype>
-#include <cassert>
-#include <strsafe.h>
-#include <comdef.h>
-#include <mshtmcid.h>
-#include <process.h>
 #include "MWebBrowser.hpp"
 
 BOOL GetIEVersion(LPWSTR pszVersion, DWORD cchVersionMax)
@@ -161,4 +146,15 @@ extern "C" __declspec(dllexport) void html_release(void *web)
     auto ww = static_cast<MWebBrowser *>(web);
     ww->Destroy();
     // ww->Release(); Destroy减少引用计数，自动del
+}
+
+extern "C" __declspec(dllexport) void html_get_current_url(void *web, wchar_t *url)
+{
+    if (!web)
+        return;
+    auto ww = static_cast<MWebBrowser *>(web);
+    ww->Destroy();
+    wchar_t *_u;
+    ww->get_LocationURL(&_u);
+    wcscpy(url, _u);
 }

@@ -8,9 +8,17 @@ from PyQt5.QtWidgets import (
     QLabel,
     QSizePolicy,
     QHBoxLayout,
+    QWidget,
 )
-from PyQt5.QtGui import QCursor, QCloseEvent, QColor, QTextCursor
-from PyQt5.QtCore import Qt, pyqtSignal, QSize, QObject
+
+from webviewpy import (
+    webview_error_t,
+    webview_native_handle_kind_t,
+    Webview,
+    declare_library_path,
+)
+from PyQt5.QtGui import QCursor, QCloseEvent, QColor, QTextCursor, QResizeEvent
+from PyQt5.QtCore import Qt, pyqtSignal, QSize
 from myutils.config import _TR, globalconfig
 from PyQt5.QtWidgets import (
     QColorDialog,
@@ -25,9 +33,10 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
 )
 from traceback import print_exc
-import qtawesome, functools, gobject
+import qtawesome, functools, threading, time, json
 from myutils.wrapper import Singleton
-from winsharedutils import showintab
+from winsharedutils import showintab, HTMLBrowser
+import windows, os, platform
 
 
 @Singleton
@@ -94,6 +103,8 @@ class saveposwindow(QMainWindow):
         d = QApplication.primaryScreen()
         self.dic, self.key = dic, key
         if self.dic:
+            dic[key][2] = max(0, min(dic[key][2], d.size().width()))
+            dic[key][3] = max(0, min(dic[key][3], d.size().height()))
             dic[key][0] = min(max(dic[key][0], 0), d.size().width() - dic[key][2])
             dic[key][1] = min(max(dic[key][1], 0), d.size().height() - dic[key][3])
             self.setGeometry(*dic[key])
@@ -335,7 +346,7 @@ class resizableframeless(saveposwindow):
 
 
 class Prompt_dialog(QDialog):
-    def __init__(self, parent, title, info, default="") -> None:
+    def __init__(self, parent, title, info, items) -> None:
         super().__init__(parent)
         self.setWindowFlags(
             self.windowFlags()
@@ -351,46 +362,21 @@ class Prompt_dialog(QDialog):
         _layout.addWidget(QLabel(info))
 
         self.text = []
-        for _ in default:
-            if isinstance(_, str):
-                self.text.append(QLineEdit(_))
-            else:
-                le = QLineEdit()
-                le.setPlaceholderText(_[0])
-                self.text.append((le))
-            _layout.addWidget(self.text[-1])
-        button = QDialogButtonBox(QDialogButtonBox.Ok)
+        for _ in items:
+
+            le = QLineEdit()
+            le.setText(_[1])
+            self.text.append((le))
+            hl = QHBoxLayout()
+            hl.addWidget(QLabel(_[0]))
+            hl.addWidget(le)
+            _layout.addLayout(hl)
+        button = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button.accepted.connect(self.accept)
+        button.rejected.connect(self.reject)
         _layout.addWidget(button)
         self.setLayout(_layout)
         self.resize(400, 1)
-        cursor = QCursor()
-        pos = cursor.pos()
-        num_screens = QDesktopWidget().screenCount()
-        for i in range(num_screens):
-            _rect = QDesktopWidget().screenGeometry(i)
-            if isinrect(pos, [_rect.getRect()[_] for _ in [0, 2, 1, 3]]):
-                self.move(_rect.width() // 2 - self.width() // 2, _rect.height() // 3)
-                break
-
-
-class Prompt(QObject):
-    call = pyqtSignal(str, str, list, list)
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.call.connect(self.getinputfunc)
-
-    def getinputfunc(self, title, info, default, callback):
-
-        _dia = Prompt_dialog(gobject.baseobject.settin_ui, title, info, default)
-
-        _dia.exec()
-
-        text = []
-        for _t in _dia.text:
-            text.append(_t.text())
-        callback[0](text)
 
 
 def callbackwrap(d, k, call, _):
@@ -532,3 +518,87 @@ def textbrowappendandmovetoend(textOutput, sentence, addspace=True):
     )
     if atBottom:
         scrollbar.setValue(scrollbar.maximum())
+
+
+def getscaledrect(size: QSize):
+    rate = QApplication.instance().devicePixelRatio()
+    rect = (
+        int(rate * size.width()),
+        int(rate * (size.height())),
+    )
+    return rect
+
+
+class WebivewWidget(QWidget):
+    on_load = pyqtSignal(str)
+
+    def __init__(self, parent=None, debug=False) -> None:
+        super().__init__(parent)
+        declare_library_path(
+            os.path.abspath(
+                os.path.join(
+                    "files/plugins/",
+                    ("DLL32", "DLL64")[platform.architecture()[0] == "64bit"],
+                    "webview",
+                )
+            )
+        )
+        self.webview = None
+        self.webview = Webview(debug=debug, window=int(self.winId()))
+
+        self.webview.bind("__on_load", self._on_load)
+        self.webview.init("""window.__on_load(window.location.href)""")
+
+    def _on_load(self, href):
+        self.on_load.emit(href)
+
+    def navigate(self, url):
+        self.webview.navigate(url)
+
+    def resizeEvent(self, a0: QResizeEvent) -> None:
+        if self.webview:
+            hwnd = self.webview.get_native_handle(
+                webview_native_handle_kind_t.WEBVIEW_NATIVE_HANDLE_KIND_UI_WIDGET
+            )
+            size = getscaledrect(a0.size())
+            windows.MoveWindow(hwnd, 0, 0, size[0], size[1], True)
+
+
+class mshtmlWidget(QWidget):
+    on_load = pyqtSignal(str)
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.browser = HTMLBrowser(int(self.winId()))
+        threading.Thread(target=self.__getcurrenturl).start()
+
+    def __getcurrenturl(self):
+        url = None
+        while True:
+            _u = self.browser.get_current_url()
+            if url != _u:
+                url = _u
+                try:
+                    self.on_load.emit(_u)
+                except:  # RuntimeError: wrapped C/C++ object of type mshtmlWidget has been deleted
+                    break
+            time.sleep(0.5)
+
+    def navigate(self, url):
+        self.browser.navigate(url)
+
+    def resizeEvent(self, a0: QResizeEvent) -> None:
+        size = getscaledrect(a0.size())
+        self.browser.resize(0, 0, size[0], size[1])
+
+
+def auto_select_webview(parent):
+
+    if globalconfig["usewebview"] == 0:
+        browser = mshtmlWidget(parent)
+    elif globalconfig["usewebview"] == 1:
+        try:
+            browser = WebivewWidget(parent, True)
+        except Exception:
+            browser = mshtmlWidget(parent)
+    return browser

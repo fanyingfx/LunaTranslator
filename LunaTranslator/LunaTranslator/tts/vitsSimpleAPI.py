@@ -1,5 +1,5 @@
 import requests
-import time
+import time, os
 from tts.basettsclass import TTSbase
 from urllib.parse import quote
 
@@ -26,9 +26,10 @@ class TTS(TTSbase):
         idx = int(voice.split("_")[1])
         model = str.lower(voice.split("_")[0])
         response = requests.get(
-            f"http://127.0.0.1:23456/voice/{model}?text={encoded_content}&id={idx}&lang=ja&format=wav"
+            f"http://127.0.0.1:23456/voice/{model}?text={encoded_content}&id={idx}&lang=auto&format=wav"
         ).content
         fname = str(time.time())
+        os.makedirs("./cache/tts/", exist_ok=True)
         with open("./cache/tts/" + fname + ".wav", "wb") as ff:
             ff.write(response)
 

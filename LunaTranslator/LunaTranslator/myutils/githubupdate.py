@@ -5,12 +5,10 @@ from myutils.proxy import getproxy
 from traceback import print_exc
 import zipfile, os
 from myutils.config import globalconfig
-import windows
+import subprocess
 
 
 def getvesionmethod():
-    url = "https://github.com/HIllya51/LunaTranslator/releases/"
-
     try:
         headers = {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
@@ -36,34 +34,13 @@ def getvesionmethod():
 def update():
     if platform.architecture()[0] == "64bit":
         bit = ""
+        _6432 = "64"
     elif platform.architecture()[0] == "32bit":
         bit = "_x86"
-    with open("./cache/update/update.bat", "w", encoding="utf8") as ff:
-
-        ff.write(
-            r""" 
-@echo off 
-:waitloop
-tasklist | find "LunaTranslator_main.exe" > nul
-if %errorlevel%==0 (
-    timeout /t 1 > nul
-    goto waitloop
-)
-timeout 1
-xcopy .\cache\update\LunaTranslator"""
-            + bit
-            + r""" .\ /s /e /c /y /h /r 
-exit
-                """
-        )
-    windows.ShellExecute(
-        None,
-        "open",
-        "cache\\update\\update.bat",
-        "",
-        os.path.dirname("."),
-        windows.SW_HIDE,
-    )
+        _6432 = "32"
+    os.makedirs("./cache", exist_ok=True)
+    shutil.copy(rf".\files\plugins\shareddllproxy{_6432}.exe", rf".\cache\Updater.exe")
+    subprocess.Popen(rf".\cache\Updater.exe update .\cache\update\LunaTranslator{bit}")
 
 
 def updatemethod(_version, progresscallback):
@@ -83,6 +60,7 @@ def updatemethod(_version, progresscallback):
     savep = "./cache/update/LunaTranslator{}.zip".format(bit)
 
     def endcallback():
+        os.makedirs("./cache/update", exist_ok=True)
         if os.path.exists("./cache/update/LunaTranslator"):
             shutil.rmtree("./cache/update/LunaTranslator")
         zipf = zipfile.ZipFile("./cache/update/LunaTranslator{}.zip".format(bit))
@@ -122,7 +100,7 @@ def updatemethod(_version, progresscallback):
                     file_size += thislen
 
                     progresscallback(
-                        "总大小{} MB 进度 {}% ".format(
+                        "总大小{} MB 进度 {:0.2f}% ".format(
                             int(1000 * (int(size / 1024) / 1024)) / 1000,
                             int(10000 * (file_size / size)) / 100,
                         ),

@@ -1,11 +1,4 @@
 
-#define _CRT_SECURE_NO_WARNINGS
-#include <iostream>
-#include <Windows.h>
-#include <io.h>
-#include <fcntl.h>
-#include <Shlwapi.h>
-
 #define CODEPAGE_JA 932
 #define CODEPAGE_GB 936
 
@@ -60,10 +53,7 @@ int jbjwmain(int argc, wchar_t *argv[])
     wchar_t *fr = new wchar_t[3000];
     wchar_t *to = new wchar_t[3000];
     wchar_t *buf = new wchar_t[3000];
-    SECURITY_DESCRIPTOR sd = {};
-    InitializeSecurityDescriptor(&sd, SECURITY_DESCRIPTOR_REVISION);
-    SetSecurityDescriptorDacl(&sd, TRUE, NULL, FALSE);
-    SECURITY_ATTRIBUTES allAccess = SECURITY_ATTRIBUTES{sizeof(SECURITY_ATTRIBUTES), &sd, FALSE};
+    
     SetEvent(CreateEvent(&allAccess, FALSE, FALSE, argv[3]));
     if (ConnectNamedPipe(hPipe, NULL) != NULL)
     {

@@ -167,6 +167,8 @@ html_resize = utilsdll.html_resize
 html_resize.argtypes = c_void_p, c_uint, c_uint, c_uint, c_uint
 html_release = utilsdll.html_release
 html_release.argtypes = (c_void_p,)
+html_get_current_url = utilsdll.html_get_current_url
+html_get_current_url.argtypes = c_void_p, c_wchar_p
 
 
 class HTMLBrowser:
@@ -184,6 +186,11 @@ class HTMLBrowser:
 
     def navigate(self, url):
         html_navigate(self.html, url)
+
+    def get_current_url(self):
+        w = create_unicode_buffer(65536)
+        html_get_current_url(self.html, w)
+        return w.value
 
     def __del__(self):
         html_release(self.html)
@@ -231,63 +238,8 @@ def extracticon2data(fname):
         return None
 
 
-WriteMemoryCallback = utilsdll.WriteMemoryCallback
 c_free = utilsdll.c_free
 c_free.argtypes = (c_void_p,)
-
-
-class MemoryStruct(Structure):
-    _fields_ = [("memory", c_void_p), ("size", c_size_t)]
-
-    def __init__(self):
-        super().__init__()
-        self.memory = 0
-        self.size = 0
-
-    def __del__(self):
-        if self.memory:
-            c_free(self.memory)
-
-    def get(self):
-        return cast(self.memory, POINTER(c_char))[: self.size]
-
-
-WriteMemoryToQueue = utilsdll.WriteMemoryToQueue
-lockedqueuecreate = utilsdll.lockedqueuecreate
-lockedqueuecreate.restype = c_void_p
-lockedqueuefree = utilsdll.lockedqueuefree
-lockedqueuefree.argtypes = (c_void_p,)
-lockedqueueget = utilsdll.lockedqueueget
-lockedqueueget.argtypes = c_void_p, POINTER(c_size_t)
-lockedqueueget.restype = c_void_p
-lockedqueuepush = utilsdll.lockedqueuepush
-lockedqueuepush.argtypes = c_void_p, c_size_t, c_void_p
-lockedqueueempty = utilsdll.lockedqueueempty
-lockedqueueempty.argtypes = (c_void_p,)
-lockedqueueempty.restype = c_bool
-
-
-class lockedqueue:
-    def __init__(self) -> None:
-        self.ptr = lockedqueuecreate()
-
-    def __del__(self):
-        lockedqueuefree(self.ptr)
-
-    def get(self):
-        sz = c_size_t()
-        dataptr = lockedqueueget(self.ptr, pointer(sz))
-        data = cast(dataptr, POINTER(c_char))[: sz.value]
-        c_free(dataptr)
-        if sz.value == 0:
-            return None
-        return data
-
-    def pushnone(self):
-        lockedqueuepush(self.ptr, 0, b"\0")
-
-    def empty(self):
-        return lockedqueueempty(self.ptr)
 
 
 _queryversion = utilsdll.queryversion
@@ -315,8 +267,16 @@ def queryversion(exe):
 startdarklistener = utilsdll.startdarklistener
 startdarklistener.restype = HANDLE
 
-SetTheme = utilsdll._SetTheme
-SetTheme.argtypes = HWND, c_bool, c_int
+_SetTheme = utilsdll._SetTheme
+_SetTheme.argtypes = HWND, c_bool, c_int
+
+
+def SetTheme(hwnd, dark, backdrop):
+    try:  # win7 x86 crash unknown why
+        _SetTheme(hwnd, dark, backdrop)
+    except:
+        pass
+
 
 showintab = utilsdll.showintab
 showintab.argtypes = HWND, c_bool

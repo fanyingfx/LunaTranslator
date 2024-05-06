@@ -1,14 +1,8 @@
-﻿
-#include <Windows.h>
-#include <iostream>
-#include <string>
-#include <psapi.h>
-#include <memory>
-#include <fstream>
-#pragma comment(linker, "/subsystem:windows /entry:wmainCRTStartup")
+﻿#pragma comment(linker, "/subsystem:windows /entry:wmainCRTStartup")
 
 int dllinjectwmain(int argc, wchar_t *argv[]);
 int ntleaswmain(int argc, wchar_t *wargv[]);
+int updatewmain(int argc, wchar_t *wargv[]);
 bool checkisapatch();
 #ifndef _WIN64
 int LRwmain(int argc, wchar_t *argv[]);
@@ -20,8 +14,6 @@ int lewmain(int argc, wchar_t *argv[]);
 int neospeech(int argc, wchar_t *argv[]);
 int neospeechlist(int argc, wchar_t *argv[]);
 #else
-int magpiewmain(int argc, wchar_t *wargv[]);
-int losslesswmain(int argc, wchar_t *wargv[]);
 #endif // !_WIN64
 
 void listprocessmodule_1(std::ofstream &of, DWORD processPID)
@@ -70,6 +62,8 @@ int wmain(int argc, wchar_t *argv[])
         return ntleaswmain(argc - 1, argv + 1);
     if (argv0 == L"listpm")
         return listprocessmodule(argc - 1, argv + 1);
+    if (argv0 == L"update")
+        return updatewmain(argc - 1, argv + 1);
 
 #ifndef _WIN64
     else if (argv0 == L"LR")
@@ -89,9 +83,6 @@ int wmain(int argc, wchar_t *argv[])
     else if (argv0 == L"neospeechlist")
         return neospeechlist(argc - 1, argv + 1);
 #else
-    else if (argv0 == L"magpie")
-        return magpiewmain(argc - 1, argv + 1);
-    else if (argv0 == L"lossless")
-        return losslesswmain(argc - 1, argv + 1);
+    
 #endif // !_WIN64
 }

@@ -569,7 +569,6 @@
     "使用说明": "Instrucciones de uso",
     "注册地址": "Dirección registrada",
     "API接口地址": "Dirección de la interfaz API",
-    "当前路径读写权限不足，请使用管理员权限运行！": "¡Los permisos de lectura y escritura de la ruta actual son insuficientes, ¡ por favor, use los permisos de Administrador para ejecutar!",
     "通用文字识别（标准版）": "Reconocimiento de texto universal (versión estándar)",
     "通用文字识别（标准含位置版）": "Reconocimiento de texto universal (estándar con versión de ubicación)",
     "通用文字识别（高精度版）": "Reconocimiento de texto universal (versión de alta precisión)",
@@ -648,7 +647,6 @@
     "Github仓库": "Almacén github",
     "利用上文信息翻译（通常会有一定的效果提升，但会导致变慢）": "Traducción utilizando la información anterior (generalmente tiene un cierto efecto de mejora, pero puede causar lentitud)",
     "文本缓冲区长度": "Longitud del colchón de texto",
-    "显示/隐藏历史翻译和调试输出": "Mostrar / ocultar la traducción histórica y depurar la salida",
     "历史翻译和调试输出": "Traducción histórica y salida de depuración",
     "调试输出": "Salida de depuración",
     "显示翻译": "Mostrar traducción",
@@ -675,7 +673,6 @@
     "缩放方式": "Modo de zoom",
     "缩放/恢复游戏窗口": "Ampliar / restaurar la ventana del juego",
     "打开关联页面": "Abrir página asociada",
-    "添加关联页面": "Añadir página asociada",
     "页面类型": "Tipo de página",
     "页面链接": "Enlace de página",
     "缓存": "Caché",
@@ -689,7 +686,6 @@
     "获取最新提取器核心&错误反馈&游戏支持": "Obtener el último núcleo del extractor & comentarios erróneos & soporte del juego",
     "外部缩放软件": "Software de zoom externo",
     "Hook Magpie进程使其不会退出缩放": "El proceso Hook magpie hace que no salga del zoom",
-    "Hook LosslessScaling进程使其不会退出缩放": "El proceso Hook losslessscaling hace que no salga del zoom",
     "保持非重复字符": "Mantener caracteres no repetitivos",
     "选择文本窗口中文本框只读": "Seleccione la ventana de texto en la que el cuadro de texto es de solo lectura",
     "多重区域模式": "Modelo multiregional",
@@ -765,5 +761,9 @@
     "右移": "A la derecha",
     "启动游戏不修改顺序": "Iniciar el juego sin modificar el orden",
     "使用自定义优化": "Usar optimizaciones personalizadas",
-    "游戏管理": "Gestión de juegos"
+    "游戏管理": "Gestión de juegos",
+    "显示标题": "Mostrar título",
+    "收藏": "Colección",
+    "名称": "Nombre",
+    "网址": "Sitio web"
 }

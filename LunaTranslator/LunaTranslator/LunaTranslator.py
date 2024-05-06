@@ -1,15 +1,12 @@
 import time
-import re
-import os, threading, codecs
+import keeprefs
+import os, threading
 from traceback import print_exc
 from myutils.config import (
     globalconfig,
     savehook_new_list,
     savehook_new_data,
-    noundictconfig,
-    transerrorfixdictconfig,
     setlanguage,
-    _TR,
     static_data,
 )
 import zipfile
@@ -18,15 +15,15 @@ from myutils.utils import (
     parsemayberegexreplace,
     kanjitrans,
     checkifnewgame,
-    getfilemd5,
+    checkpostusing,
+    getpostfile,
     stringfyerror,
 )
-import os, hashlib
 from PyQt5.QtWidgets import QApplication
-from PyQt5.QtCore import Qt, QSize, QObject, QEvent
+from PyQt5.QtCore import Qt, QObject, QEvent
 from myutils.wrapper import threader
 from gui.showword import searchwordW
-from myutils.hwnd import getpidexe, testprivilege, ListProcess
+from myutils.hwnd import getpidexe, ListProcess
 from textsource.copyboard import copyboard
 from textsource.texthook import texthook
 from textsource.ocrtext import ocrtext
@@ -41,14 +38,11 @@ from functools import partial
 from gui.settin import Settin
 from gui.showocrimage import showocrimage
 from gui.attachprocessdialog import AttachProcessDialog
-import hmac, pytz, uuid
-import xml.etree.ElementTree as ET
 import windows
-import re, gobject
+import gobject
 import winsharedutils
 from winsharedutils import pid_running
 from myutils.post import POSTSOLVE
-from gui.usefulwidget import Prompt, getQMessageBox
 
 
 class _autolock:
@@ -96,60 +90,47 @@ class MAINUI:
 
     @threader
     def safeloadprocessmodels(self):
-        for model, d, k in [
-            ("noundict", noundictconfig, "use"),
-            ("transerrorfix", transerrorfixdictconfig, "use"),
-            ("gongxiangcishu", globalconfig["gongxiangcishu"], "use"),
-            ("myprocess", globalconfig, "selfdefinedprocesspair"),
-        ]:
+        for item in static_data["transoptimi"]:
+            name = item["name"]
             try:
-                if model == "myprocess":
-                    mm = "myprocess"
-                    checkpath = "./userconfig/myprocess.py"
-                else:
-                    mm = "transoptimi." + model
-                    checkpath = "./LunaTranslator/transoptimi/" + model + ".py"
-                if os.path.exists(checkpath) == False:
+                mm = getpostfile(name)
+                if not mm:
                     continue
                 Process = importlib.import_module(mm).Process
 
-                def __(kls, _d, _k):
+                def __(kls, _name):
                     class klass(kls):
                         @property
                         def using(self):
-                            return _d[_k]
+                            return checkpostusing(_name)
 
                     return klass()
 
-                klass = __(Process, d, k)
-                process_before = klass.process_before
-                process_after = klass.process_after
-                self.processmethods.append(klass)
+                object = __(Process, name)
+                self.processmethods.append({"name": name, "object": object})
             except:
                 print_exc()
 
     def solvebeforetrans(self, content):
         contexts = []
         self.zhanweifu = 0
-        for i in range(len(self.processmethods)):
+        for method in self.processmethods:
+            context = None
             try:
-                if self.processmethods[i].using:
-                    content, context = self.processmethods[i].process_before(content)
-                else:
-                    context = None
+                if method["object"].using:
+                    content, context = method["object"].process_before(content)
             except:
-                context = None
                 print_exc()
             contexts.append(context)
         return content, contexts
 
     def solveaftertrans(self, res, mp):
-        for i in range(len(self.processmethods)):
+        for i, method in enumerate(self.processmethods):
 
             context = mp[i]
             try:
-                if self.processmethods[i].using:
-                    res = self.processmethods[i].process_after(res, context)
+                if method["object"].using:
+                    res = method["object"].process_after(res, context)
             except:
                 print_exc()
         return res
@@ -710,8 +691,6 @@ class MAINUI:
         zip_directory(path, savedir + "/" + data_head)
 
     def autohookmonitorthread(self):
-        for game in savehook_new_data:
-            checkifnewgame(game)
         while self.isrunning:
             self.onwindowloadautohook()
             time.sleep(
@@ -831,8 +810,6 @@ class MAINUI:
 
     def mainuiloadafter(self):
 
-        gobject.overridestdio()
-
         self.safeloadprocessmodels()
         self.prepare()
         self.startxiaoxueguan()
@@ -840,7 +817,6 @@ class MAINUI:
         self.startoutputer()
         self.settin_ui = Settin(self.translation_ui)
         self.transhis = gui.transhist.transhist(self.settin_ui)
-        gobject.baseobject.Prompt = Prompt()
         self.startreader()
 
         self.edittextui = gui.edittext.edittext(self.settin_ui)

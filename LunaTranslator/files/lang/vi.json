@@ -569,7 +569,6 @@
     "使用说明": "Hướng dẫn sử dụng",
     "注册地址": "Địa chỉ đăng ký",
     "API接口地址": "Địa chỉ giao diện API",
-    "当前路径读写权限不足，请使用管理员权限运行！": "Đường dẫn hiện tại không đủ quyền đọc và ghi, hãy chạy với quyền quản trị viên!",
     "通用文字识别（标准版）": "Nhận dạng văn bản chung (Standard Edition)",
     "通用文字识别（标准含位置版）": "Nhận dạng văn bản chung (phiên bản tiêu chuẩn bao gồm vị trí)",
     "通用文字识别（高精度版）": "Nhận dạng văn bản chung (phiên bản chính xác cao)",
@@ -648,7 +647,6 @@
     "Github仓库": "Kho Github",
     "利用上文信息翻译（通常会有一定的效果提升，但会导致变慢）": "Sử dụng thông tin trên để dịch (thường có một số hiệu ứng tăng lên, nhưng có thể dẫn đến chậm hơn)",
     "文本缓冲区长度": "Chiều dài bộ đệm văn bản",
-    "显示/隐藏历史翻译和调试输出": "Hiển thị/ẩn lịch sử dịch và đầu ra gỡ lỗi",
     "历史翻译和调试输出": "Lịch sử dịch và gỡ lỗi đầu ra",
     "调试输出": "Đầu ra gỡ lỗi",
     "显示翻译": "Hiện bản dịch",
@@ -675,7 +673,6 @@
     "缩放方式": "Cách thu phóng",
     "缩放/恢复游戏窗口": "Thu phóng/khôi phục cửa sổ trò chơi",
     "打开关联页面": "Mở trang liên kết",
-    "添加关联页面": "Thêm trang liên kết",
     "页面类型": "Loại trang",
     "页面链接": "Liên kết trang",
     "缓存": "Bộ nhớ tạm",
@@ -689,7 +686,6 @@
     "获取最新提取器核心&错误反馈&游戏支持": "Nhận lõi Extractor mới nhất&Phản hồi lỗi&Hỗ trợ trò chơi",
     "外部缩放软件": "Phần mềm Zoom ngoài",
     "Hook Magpie进程使其不会退出缩放": "Quá trình Hook Magpie làm cho nó không thoát khỏi zoom",
-    "Hook LosslessScaling进程使其不会退出缩放": "Quá trình Hook LosslessScaling làm cho nó không thoát khỏi zoom",
     "保持非重复字符": "Giữ các ký tự không trùng lặp",
     "选择文本窗口中文本框只读": "Chọn hộp văn bản chỉ đọc trong cửa sổ văn bản",
     "多重区域模式": "Chế độ đa vùng",
@@ -765,5 +761,9 @@
     "右移": "Dịch phải",
     "启动游戏不修改顺序": "Bắt đầu trò chơi Không thay đổi thứ tự",
     "使用自定义优化": "Sử dụng Custom Optimization",
-    "游戏管理": "Quản lý trò chơi"
+    "游戏管理": "Quản lý trò chơi",
+    "显示标题": "Hiện tiêu đề",
+    "收藏": "Bộ sưu tập",
+    "名称": "Tên",
+    "网址": "Trang chủ"
 }

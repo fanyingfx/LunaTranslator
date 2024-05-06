@@ -11,6 +11,7 @@ def b64string(a):
 
 
 def vndbdownloadimg(url, wait=True):
+    os.makedirs("./cache/vndb", exist_ok=True)
     savepath = "./cache/vndb/" + b64string(url) + ".jpg"
     if os.path.exists(savepath):
         return savepath
@@ -59,6 +60,7 @@ def vndbdowloadinfo(vid):
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36 Edg/113.0.1774.42",
     }
     url = "https://vndb.org/" + vid
+    os.makedirs("./cache/vndb", exist_ok=True)
     savepath = "./cache/vndb/" + b64string(url) + ".html"
     # print(url,savepath)
     if not os.path.exists(savepath):
@@ -133,12 +135,16 @@ def getvidbytitle_vn(title):
 def getvidbytitle_release(title):
     return safegetvndbjson(
         "https://api.vndb.org/kana/release",
-        {"filters": ["search", "=", title], "fields": "id", "sort": "searchrank"},
-        lambda js: js["results"][0]["id"],
+        {
+            "filters": ["search", "=", title],
+            "fields": "id,vns.id",
+            "sort": "searchrank",
+        },
+        lambda js: js["results"][0]["vns"][0]["id"],
     )
 
 
-def getdevelopersbyid(vid): 
+def getdevelopersbyid(vid):
 
     def _js(js):
         _ = []
@@ -197,12 +203,14 @@ def safedownload():
             "https://dl.vndb.org/dump/vndb-tags-latest.json.gz",
             proxies=getproxy(),
         )
-        with open("./cache/vndb-tags-latest.json.gz", "wb") as ff:
+        os.makedirs("./cache/vndb", exist_ok=True)
+        with open("./cache/vndb/vndb-tags-latest.json.gz", "wb") as ff:
             ff.write(resp.content)
         decompress_gzip_file(
-            "./cache/vndb-tags-latest.json.gz", "./cache/vndb-tags-latest.json"
+            "./cache/vndb/vndb-tags-latest.json.gz",
+            "./cache/vndb/vndb-tags-latest.json",
         )
-        with open("./cache/vndb-tags-latest.json", "r", encoding="utf8") as ff:
+        with open("./cache/vndb/vndb-tags-latest.json", "r", encoding="utf8") as ff:
             js = json.load(ff)
         newjs = {}
         for item in js:
@@ -248,16 +256,10 @@ def getvntagsbyid(vid):
     return tags
 
 
-def searchforidimage(titleorid):
-    print(titleorid)
-    if os.path.exists("./cache/vndb") == False:
-        os.mkdir("./cache/vndb")
-    if isinstance(titleorid, str):
-        vid = getvidbytitle(titleorid)
-        if not vid:
-            return {}
-    elif isinstance(titleorid, int):
-        vid = "v{}".format(titleorid)
+def searchfordata(vid):
+
+    os.makedirs("./cache/vndb", exist_ok=True)
+    vid = "v{}".format(vid)
     img = getimgbyid(vid)
     title = gettitlebyid(vid)
     namemap = getcharnamemapbyid(vid)
@@ -266,7 +268,6 @@ def searchforidimage(titleorid):
     return {
         "namemap": namemap,
         "title": title,
-        "vid": vid,
         "infopath": vndbdowloadinfo(vid),
         "imagepath": vndbdownloadimg(img),
         "vndbtags": vndbtags,
