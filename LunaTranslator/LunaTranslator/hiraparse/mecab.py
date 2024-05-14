@@ -56,6 +56,7 @@ class hira:
             orig = text[start: start + l]
             if origorig is None:
                 origorig = orig
+            origorig = origorig.split('-')[0]
             start += l
             hira = kana  # .translate(self.h2k)
 
