@@ -1,40 +1,31 @@
-from myutils.config import globalconfig
 import winsharedutils
 import os
-import re
-import itertools
+
+from hiraparse.basehira import basehira
 
 
-def is_kana(input_str):
-    katakana_pattern = re.compile("[\u3040-\u309F\u30A0-\u30FF]+")
-    return bool(katakana_pattern.fullmatch(input_str))
-
-
-class hira:
-    def __init__(self) -> None:
-        hirasettingbase = globalconfig["hirasetting"]
-        mecabpath = hirasettingbase["mecab"]["path"]
+class mecab(basehira):
+    def init(self) -> None:
+        mecabpath = self.config["path"]
         if os.path.exists(mecabpath):
             self.kks = winsharedutils.mecabwrap(
                 mecabpath
-            )  # fugashi.Tagger('-r nul -d "{}" -Owakati'.format(mecabpath))
+            )  #  fugashi.Tagger('-r nul -d "{}" -Owakati'.format(mecabpath))
 
-    def fy(self, text):
+    def parse(self, text):
         start = 0
         result = []
-        codec = ["utf8", "shiftjis"][globalconfig["hirasetting"]["mecab"]["codec"]]
+        codec = ["utf8", "shiftjis"][self.config["codec"]]
         for node, fields in self.kks.parse(
-                text, codec
+            text, codec
         ):  # self.kks.parseToNodeList(text):
             kana = ""
             pos1 = ""
             origorig = None
             if len(fields):
                 pos1 = fields[0]
-                if len(fields) > 12 and fields[12] == "外":
-                    kana = fields[7].split("-")[-1]
-                elif len(fields) > 29:
-                    kana = next(filter(is_kana, (fields[i] for i in (22, 23, 24))), "")
+                if len(fields) > 29:
+                    kana = fields[22]
                 elif len(fields) == 29:
                     kana = fields[20]
                 elif 29 > len(fields) >= 26:
@@ -51,18 +42,26 @@ class hira:
             l = 0
             if text[start] == "\n":
                 start += 1
-            while str(node) not in text[start: start + l]:
+            while str(node) not in text[start : start + l]:
                 l += 1
-            orig = text[start: start + l]
+            orig = text[start : start + l]
             if origorig is None:
                 origorig = orig
-            origorig = origorig.split('-')[0]
+
             start += l
             hira = kana  # .translate(self.h2k)
 
             if hira == "*":
                 hira = ""
             # print(node.feature)
+
+            if "-" in origorig:
+                try:
+                    hira = origorig.split("-")[1]
+                    origorig = origorig.split("-")[0]
+                except:
+                    pass
+
             result.append(
                 {"orig": orig, "hira": hira, "cixing": pos1, "origorig": origorig}
             )

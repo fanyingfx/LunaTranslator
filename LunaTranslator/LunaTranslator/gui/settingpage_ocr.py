@@ -16,7 +16,6 @@ def getocrgrid(self):
 
     grids = []
     i = 0
-    lendict = len(list(globalconfig["ocr"].keys()))
 
     self.ocrswitchs = {}
     line = []
@@ -66,7 +65,7 @@ def getocrgrid(self):
             grids.append(line)
             line = []
         else:
-            line += []
+            line += [""]
         i += 1
     if len(line):
         grids.append(line)

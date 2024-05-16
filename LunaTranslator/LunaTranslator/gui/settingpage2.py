@@ -87,7 +87,7 @@ def initsome11(self, l, label=None):
             grids.append(line)
             line = []
         else:
-            line += []
+            line += [""]
     if len(line):
         grids.append(line)
     return grids
@@ -206,14 +206,14 @@ def setTabTwo_lazy(self):
     ]
     _items = [
         {
-            "t": "file",
+            "type": "file",
             "dir": False,
             "filter": "*.exe",
-            "l": "Chromium_路径",
+            "name": "Chromium_路径",
             "d": globalconfig,
             "k": "chromepath",
         },
-        {"t": "okcancel"},
+        {"type": "okcancel"},
     ]
 
     developgrid = [

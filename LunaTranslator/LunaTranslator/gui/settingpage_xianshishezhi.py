@@ -248,12 +248,13 @@ def setTabThree_lazy(self):
                             "普通字体",
                             "空心字体",
                             "描边字体",
-                            "阴影字体",
-                            "描边字体_reverse",
+                            "描边字体_2",
+                            "描边字体_2_投影",
+                            "发光字体",
                         ]
                     ),
                     globalconfig,
-                    "zitiyangshi",
+                    "zitiyangshi2",
                 ),
                 5,
             ),
@@ -287,9 +288,18 @@ def setTabThree_lazy(self):
                 ),
                 2,
             ),
+        ],
+        [
+            ("发光亮度", 3),
+            (getspinbox(1, 100, globalconfig, "shadowforce"), 2),
             "",
-            ("阴影强度", 3),
-            (getspinbox(1, 20, globalconfig, "shadowforce"), 2),
+            ("投影距离", 3),
+            (
+                getspinbox(
+                    0.1, 100, globalconfig, "traceoffset", double=True, step=0.1
+                ),
+                2,
+            ),
         ],
         [],
         [
@@ -358,10 +368,8 @@ def setTabThree_lazy(self):
         [
             ("收到翻译结果时才刷新", 4),
             getsimpleswitch(globalconfig, "refresh_on_get_trans"),
-        ],
-        [],
-        [
-            ("可选取模式(阴影字体下无效)", 6),
+            "",
+            ("可选取模式", 4),
             getsimpleswitch(
                 globalconfig,
                 "selectable",
@@ -438,6 +446,26 @@ def setTabThree_lazy(self):
                     callback=lambda _: gobject.baseobject.translation_ui.refreshtooliconsignal.emit(),
                 ),
                 2,
+            ),
+        ],
+        [
+            ("圆角_半径", 4),
+            (
+                getspinbox(
+                    0,
+                    100,
+                    globalconfig,
+                    "yuanjiao_r",
+                    callback=lambda _: gobject.baseobject.translation_ui.set_color_transparency(),
+                ),
+                2,
+            ),
+            "",
+            ("圆角_合并", 4),
+            getsimpleswitch(
+                globalconfig,
+                "yuanjiao_merge",
+                callback=lambda _: gobject.baseobject.translation_ui.set_color_transparency(),
             ),
         ],
         [],

@@ -1,20 +1,25 @@
 import requests
 from ocrengines.baseocrclass import baseocr
-import os
+import os, uuid
+from myutils.ocrutil import binary2qimage
 
 
 class OCR(baseocr):
 
-    def ocr(self, img_path):
+    def ocr(self, imagebinary):
 
+        os.makedirs("./cache/ocr", exist_ok=True)
+        fname = "./cache/ocr/" + str(uuid.uuid4()) + ".png"
+        with open(fname, "wb") as ff:
+            ff.write(imagebinary)
         self.checkempty(["Port"])
         self.port = self.config["Port"]
 
-        absolute_img_path = os.path.abspath(img_path)
+        absolute_img_path = os.path.abspath(fname)
         params = {"image_path": absolute_img_path}
 
         response = requests.get(f"http://127.0.0.1:{self.port}/image", params=params)
-
+        os.remove(absolute_img_path)
         try:
             return response.json()["text"]
         except Exception as e:

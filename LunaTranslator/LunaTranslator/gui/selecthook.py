@@ -394,7 +394,7 @@ class searchhookparam(QDialog):
 
 
 class hookselect(closeashidewindow):
-    addnewhooksignal = pyqtSignal(tuple, bool, list)
+    addnewhooksignal = pyqtSignal(tuple, bool)
     getnewsentencesignal = pyqtSignal(str)
     sysmessagesignal = pyqtSignal(str)
     changeprocessclearsignal = pyqtSignal()
@@ -441,8 +441,8 @@ class hookselect(closeashidewindow):
         self.allres = OrderedDict()
         self.hidesearchhookbuttons()
 
-    def addnewhook(self, ss, select, textthread):
-        hc, hn, tp = textthread
+    def addnewhook(self, key, select):
+        hc, hn, tp = key
         if len(self.save) == 0:
             if gobject.baseobject.textsource.allow_set_text_name:
                 self.ttCombomodelmodel.setHorizontalHeaderLabels(
@@ -478,49 +478,36 @@ class hookselect(closeashidewindow):
                     0, QHeaderView.ResizeToContents
                 )
 
-        if ss[-1][0] == "E":
+        if hc[0] == "E":
             self.selectionbutton.insert(
                 0,
                 getsimpleswitch(
-                    {1: False}, 1, callback=functools.partial(self.accept, ss)
+                    {1: False}, 1, callback=functools.partial(self.accept, key)
                 ),
             )
-            self.save.insert(0, ss)
+            self.save.insert(0, key)
             rown = 0
         else:
-            self.save.append(ss)
+            self.save.append(key)
             rown = self.ttCombomodelmodel.rowCount()
             self.selectionbutton.append(
                 getsimpleswitch(
-                    {1: False}, 1, callback=functools.partial(self.accept, ss)
+                    {1: False}, 1, callback=functools.partial(self.accept, key)
                 )
             )
         if gobject.baseobject.textsource.allow_set_text_name:
-            for jskey in savehook_new_data[gobject.baseobject.textsource.pname][
-                "hooktypeasname"
-            ]:
-                if (
-                    savehook_new_data[gobject.baseobject.textsource.pname][
-                        "hooktypeasname"
-                    ][jskey]
-                    == 0
-                ):
-                    continue
-                if gobject.baseobject.textsource.match_compatibility(
-                    json.loads(jskey), ss
-                ):
-                    gobject.baseobject.textsource.hooktypecollecter[ss] = 1
+
             self.typecombo.insert(
                 rown,
                 getsimplecombobox(
                     _TRL(["文本", "人名"]),
                     gobject.baseobject.textsource.hooktypecollecter,
-                    ss,
+                    key,
                     callback=functools.partial(
                         savehook_new_data[gobject.baseobject.textsource.pname][
                             "hooktypeasname"
                         ].__setitem__,
-                        json.dumps(ss),
+                        json.dumps(gobject.baseobject.textsource.serialkey(key)),
                     ),
                 ),
             )
@@ -529,7 +516,7 @@ class hookselect(closeashidewindow):
                 [
                     QStandardItem(),
                     QStandardItem(),
-                    QStandardItem("%s %s %x:%x" % (ss[-2], ss[-1], ss[-3], ss[-4])),
+                    QStandardItem("%s %s %x:%x" % (hn, hc, tp.ctx, tp.ctx2)),
                     QStandardItem(),
                 ],
             )
@@ -541,7 +528,7 @@ class hookselect(closeashidewindow):
                 rown,
                 [
                     QStandardItem(),
-                    QStandardItem("%s %s %x:%x" % (ss[-2], ss[-1], ss[-3], ss[-4])),
+                    QStandardItem("%s %s %x:%x" % (hn, hc, tp.ctx, tp.ctx2)),
                     QStandardItem(),
                 ],
             )
@@ -551,7 +538,7 @@ class hookselect(closeashidewindow):
         self.tttable.setIndexWidget(
             self.ttCombomodelmodel.index(rown, 0), self.selectionbutton[rown]
         )
-        if ss[-1][0] == "E":
+        if hc[0] == "E":
             embedw, hlay = getformlayoutw(cls=QHBoxLayout)
             label = QLabel()
             hlay.addWidget(label)
@@ -566,11 +553,11 @@ class hookselect(closeashidewindow):
                 if _isusing:
                     _text = "取消内嵌翻译"
 
-                    if ss[-2][:8] == "UserHook":
+                    if hn[:8] == "UserHook":
                         needinserthookcode = savehook_new_data[
                             gobject.baseobject.textsource.pname
                         ]["needinserthookcode"]
-                        needinserthookcode = list(set(needinserthookcode + [ss[-1]]))
+                        needinserthookcode = list(set(needinserthookcode + [hc]))
                         savehook_new_data[gobject.baseobject.textsource.pname].update(
                             {"needinserthookcode": needinserthookcode}
                         )
@@ -739,14 +726,14 @@ class hookselect(closeashidewindow):
         r = self.tttable.currentIndex().row()
         if r < 0:
             return
-        hook = self.save[r]
+        hc, hn, tp = self.save[r]
         if action == remove:
-            pid = hook[0]
-            addr = hook[1]
+            pid = tp.processId
+            addr = tp.addr
             gobject.baseobject.textsource.removehook(pid, addr)
 
         elif action == copy:
-            copyhook = hook[-1]
+            copyhook = hc
             if copyhook[0] == "E":
                 copyhook = copyhook[copyhook.find("H") :]
             winsharedutils.clipboard_set(copyhook)
@@ -808,7 +795,7 @@ class hookselect(closeashidewindow):
             ):
                 ishide = True
                 for i in range(
-                    min(len(gobject.baseobject.textsource.hookdatacollecter[key]), 20)
+                    len(gobject.baseobject.textsource.hookdatacollecter[key])
                 ):
 
                     if any(
@@ -904,8 +891,6 @@ class hookselect(closeashidewindow):
     def accept(self, key, select):
         try:
 
-            gobject.baseobject.textsource.lock.acquire()
-
             if key in gobject.baseobject.textsource.selectedhook:
                 gobject.baseobject.textsource.selectedhook.remove(key)
 
@@ -926,9 +911,8 @@ class hookselect(closeashidewindow):
                 pass
 
             savehook_new_data[gobject.baseobject.textsource.pname].update(
-                {"hook": gobject.baseobject.textsource.selectedhook}
+                {"hook": gobject.baseobject.textsource.serialselectedhook()}
             )
-            gobject.baseobject.textsource.lock.release()
         except:
             print_exc()
 
@@ -975,13 +959,10 @@ class hookselect(closeashidewindow):
         try:
             # print(gobject.baseobject.textsource)
             gobject.baseobject.textsource.selectinghook = self.save[index.row()]
+            hc, hn, tp = self.save[index.row()]
 
             self.textOutput.setPlainText(
-                "\n".join(
-                    gobject.baseobject.textsource.hookdatacollecter[
-                        self.save[index.row()]
-                    ]
-                )
+                gobject.baseobject.textsource.QueryThreadHistory(tp)
             )
             self.textOutput.moveCursor(QTextCursor.End)
 

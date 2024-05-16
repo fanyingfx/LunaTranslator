@@ -2,7 +2,6 @@ import time
 import functools
 import threading
 import os, sys
-from PyQt5.QtCore import QT_VERSION_STR
 import windows, importlib
 from traceback import print_exc
 from PyQt5.QtCore import Qt, pyqtSignal
@@ -152,25 +151,8 @@ class QUnFrameWindow(resizableframeless):
         hira = []
         try:
             if gobject.baseobject.hira_:
-                hira = gobject.baseobject.hira_.fy(text)
-                for _1 in range(len(hira)):
-                    _ = len(hira) - 1 - _1
-                    if globalconfig["hira_vis_type"] == 0:
-                        hira[_]["hira"] = hira[_]["hira"].translate(self.castkata2hira)
-                    elif globalconfig["hira_vis_type"] == 1:
-                        hira[_]["hira"] = hira[_]["hira"].translate(self.casthira2kata)
-                    elif globalconfig["hira_vis_type"] == 2:
-                        __kanas = [
-                            static_data["hira"] + ["っ"],
-                            static_data["kata"] + ["ッ"],
-                        ]
-                        target = static_data["roma"] + ["-"]
-                        for _ka in __kanas:
-                            for __idx in range(len(_ka)):
-                                _reverse_idx = len(_ka) - 1 - __idx
-                                hira[_]["hira"] = hira[_]["hira"].replace(
-                                    _ka[_reverse_idx], target[_reverse_idx]
-                                )
+                hira = gobject.baseobject.hira_.parseparse(text)
+
         except:
             print_exc()
         return hira
@@ -203,23 +185,6 @@ class QUnFrameWindow(resizableframeless):
             self.translate_text.setAlignment(Qt.AlignCenter)
         else:
             self.translate_text.setAlignment(Qt.AlignLeft)
-
-        if globalconfig["zitiyangshi"] == 2:
-            self.translate_text.mergeCurrentCharFormat_out(
-                globalconfig["miaobiancolor"], color, globalconfig["miaobianwidth2"]
-            )
-        elif globalconfig["zitiyangshi"] == 4:
-            self.translate_text.mergeCurrentCharFormat_out(
-                color, globalconfig["miaobiancolor"], globalconfig["miaobianwidth2"]
-            )
-        elif globalconfig["zitiyangshi"] == 1:
-            self.translate_text.mergeCurrentCharFormat(
-                color, globalconfig["miaobianwidth"]
-            )
-        elif globalconfig["zitiyangshi"] == 0:
-            self.translate_text.simplecharformat(color)
-        elif globalconfig["zitiyangshi"] == 3:
-            self.translate_text.simplecharformat(color)
 
         if iter_context:
             iter_res_status, iter_context_class = iter_context
@@ -258,13 +223,12 @@ class QUnFrameWindow(resizableframeless):
                         self.saveiterclasspointer[klass]["curr"] += currchange
                         self.saveiterclasspointer[klass]["start"] += currchange
 
-            if globalconfig["zitiyangshi"] == 3:
-                self.translate_text.showyinyingtext2(
-                    color,
-                    iter_context_class,
-                    self.saveiterclasspointer[iter_context_class]["start"],
-                    text,
-                )
+            self.translate_text.showyinyingtext2(
+                color,
+                iter_context_class,
+                self.saveiterclasspointer[iter_context_class]["start"],
+                text,
+            )
 
         else:
             self.translate_text.append(
@@ -273,16 +237,23 @@ class QUnFrameWindow(resizableframeless):
 
         if hira:
 
-            def callback(word):
+            def callback(word, append):
                 if globalconfig["usewordorigin"] == False:
                     word = word["orig"]
                 else:
                     word = word.get("origorig", word["orig"])
 
                 if globalconfig["usecopyword"]:
-                    winsharedutils.clipboard_set(word)
+                    if append:
+                        winsharedutils.clipboard_set(
+                            winsharedutils.clipboard_get() + word
+                        )
+                    else:
+                        winsharedutils.clipboard_set(word)
                 if globalconfig["usesearchword"]:
-                    gobject.baseobject.searchwordW.getnewsentencesignal.emit(word)
+                    gobject.baseobject.searchwordW.getnewsentencesignal.emit(
+                        word, append
+                    )
 
             self.translate_text.addsearchwordmask(hira, text, callback)
 
@@ -379,15 +350,13 @@ class QUnFrameWindow(resizableframeless):
         self.textAreaChanged()
         self.setMinimumHeight(int(globalconfig["buttonsize"] * 1.5 + 10))
         self.setMinimumWidth(globalconfig["buttonsize"] * 2)
+        self.set_color_transparency()
 
     def ocr_once_function(self):
         @threader
         def ocroncefunction(rect):
             img = imageCut(0, rect[0][0], rect[0][1], rect[1][0], rect[1][1])
-            fname = "./cache/ocr/once.png"
-            os.makedirs("./cache/ocr", exist_ok=True)
-            img.save(fname)
-            text = ocr_run(fname)
+            text = ocr_run(img)
             gobject.baseobject.textgetmethod(text, False)
 
         rangeselct_function(self, ocroncefunction, False, False)
@@ -634,8 +603,7 @@ class QUnFrameWindow(resizableframeless):
         self.tray.setIcon(icon)
         showintab(int(self.winId()), globalconfig["showintab"])
         self.isfirstshow = True
-        if QT_VERSION_STR != "5.5.1":
-            self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating, True)
         self.showintab = globalconfig["showintab"]
         self.setWindowTitle("LunaTranslator")
@@ -665,12 +633,6 @@ class QUnFrameWindow(resizableframeless):
         self.quitf_signal.connect(self.close)
         self.fullsgame_signal.connect(self._fullsgame)
 
-        self.castkata2hira = str.maketrans(
-            static_data["allkata"], static_data["allhira"]
-        )
-        self.casthira2kata = str.maketrans(
-            static_data["allhira"], static_data["allkata"]
-        )
         self.fullscreenmanager_busy = False
         self.isletgamefullscreened = False
         self.fullscreenmanager = None
@@ -685,10 +647,10 @@ class QUnFrameWindow(resizableframeless):
         self.backtransparent = False
         self.isbindedwindow = False
         self.buttons = []
+        self.stylebuttons = {}
         self.showbuttons = []
         self.saveiterclasspointer = {}
         self.addbuttons()
-
         self.translate_text = Textbrowser(self)
 
         # 翻译框根据内容自适应大小
@@ -699,15 +661,57 @@ class QUnFrameWindow(resizableframeless):
         self.refreshtoolicon()
         self.thistimenotsetop = False
 
+    def createborderradiusstring(self, r, merge, top=False):
+        if merge:
+            if top:
+                return """
+                border-top-left-radius: %spx;
+                border-top-right-radius: %spx;
+                border-bottom-left-radius: 0;
+                border-bottom-right-radius: 0;
+                """ % (
+                    r,
+                    r,
+                )
+            else:
+                return """
+                border-bottom-left-radius: %spx;
+                border-bottom-right-radius: %spx;
+                border-top-left-radius: 0;
+                border-top-right-radius: 0;
+                """ % (
+                    r,
+                    r,
+                )
+        else:
+            return "border-radius:%spx" % r
+
     def set_color_transparency(self):
+
+        use_r1 = min(
+            self.translate_text.textbrowser.height() // 2,
+            self.translate_text.textbrowser.width() // 2,
+            globalconfig["yuanjiao_r"],
+        )
+        use_r2 = min(
+            self._TitleLabel.height() // 2,
+            self._TitleLabel.width() // 2,
+            globalconfig["yuanjiao_r"],
+        )
+        topr = self.createborderradiusstring(
+            use_r1,
+            globalconfig["yuanjiao_merge"] and self._TitleLabel.isVisible(),
+            False,
+        )
+        bottomr2 = self.createborderradiusstring(use_r2, False)
+        bottomr = self.createborderradiusstring(
+            use_r2, globalconfig["yuanjiao_merge"], True
+        )
+
         self.translate_text.setStyleSheet(
-            "border-width: 0;\
-                                           border-style: outset;\
-                                           border-top: 0px solid #e8f3f9;\
-                                           color: white;\
-                                            \
-                                           background-color: rgba(%s, %s, %s, %s)"
+            "border-width: 0;%s;background-color: rgba(%s, %s, %s, %s)"
             % (
+                topr,
                 int(globalconfig["backcolor"][1:3], 16),
                 int(globalconfig["backcolor"][3:5], 16),
                 int(globalconfig["backcolor"][5:7], 16),
@@ -715,19 +719,39 @@ class QUnFrameWindow(resizableframeless):
             )
         )
         self._TitleLabel.setStyleSheet(
-            "border-width: 0;\
-                                           border-style: outset;\
-                                           border-top: 0px solid #e8f3f9;\
-                                           color: white;\
-                                           font-weight: bold;\
-                                           background-color: rgba(%s, %s, %s, %s)"
+            "border-width: 0;%s;background-color: rgba(%s, %s, %s, %s)"
             % (
+                bottomr,
                 int(globalconfig["backcolor"][1:3], 16),
                 int(globalconfig["backcolor"][3:5], 16),
                 int(globalconfig["backcolor"][5:7], 16),
                 globalconfig["transparent"] / 200,
             )
         )
+        for _type in self.stylebuttons:
+            style = """
+            QPushButton{
+                background-color: rgba(255, 255, 255, 0);
+                color: black;%s;
+                border: 0px;
+                font: 100 10pt;
+            }
+            QPushButton:hover{
+                background-color: %s;
+                border: 0px;%s;
+                font: 100 10pt;
+            }
+            """ % (
+                bottomr2,
+                (
+                    globalconfig["button_color_normal"],
+                    globalconfig["button_color_close"],
+                )[_type - 1],
+                bottomr2,
+            )
+
+            for btn in self.stylebuttons[_type]:
+                btn.setStyleSheet(style)
 
     def muteprocessfuntion(self):
         if gobject.baseobject.textsource and gobject.baseobject.textsource.pids:
@@ -914,6 +938,7 @@ class QUnFrameWindow(resizableframeless):
         for button in self.buttons:
             button.hide()
         self._TitleLabel.hide()
+        self.set_color_transparency()
 
     def enterEvent(self, QEvent):
         self.enterfunction()
@@ -936,13 +961,14 @@ class QUnFrameWindow(resizableframeless):
                 s.toolbarhidedelaysignal.emit()
 
         threading.Thread(target=lambda: __(self)).start()
+        self.set_color_transparency()
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
         wh = globalconfig["buttonsize"] * 1.5
         height = self.height() - wh
 
-        self.translate_text.resize(self.width() - 5, height)
+        self.translate_text.resize(self.width(), height)
         for button in self.buttons[-2:]:
             button.adjast()
         # 自定义窗口调整大小事件
@@ -991,39 +1017,9 @@ class QUnFrameWindow(resizableframeless):
         button = QPushButton(self)
         if tips:
             button.setToolTip(_TR(tips))
-
-        style = """
-        QPushButton{
-          background-color: rgba(255, 255, 255, 0);
-          color: black;
-          border: 0px;
-          font: 100 10pt;
-      }
-       
-        """
-        if _type == 1:
-            style += (
-                """
-            QPushButton:hover{
-           background-color: %s;
-           border: 0px;
-           font: 100 10pt;
-            }"""
-                % globalconfig["button_color_normal"]
-            )
-        elif _type == 2:
-            style += """
-             QPushButton:hover{
-           background-color: %s;
-           color: white;
-           border: 0px;
-           font: 100 10pt;
-       }""" % (
-                globalconfig["button_color_close"]
-            )
-
-        button.setStyleSheet(style)
-
+        if _type not in self.stylebuttons:
+            self.stylebuttons[_type] = []
+        self.stylebuttons[_type].append(button)
         if clickfunc:
             button.clicked.connect(functools.partial(self.callwrap, clickfunc))
         else:

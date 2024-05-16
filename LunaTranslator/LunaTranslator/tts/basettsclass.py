@@ -1,6 +1,7 @@
 from myutils.config import globalconfig
-import threading
-
+import threading, os, functools
+from myutils.wrapper import threader
+from traceback import print_exc
 
 class TTSbase:
     def init(self):
@@ -19,7 +20,15 @@ class TTSbase:
     # 一些可能需要的属性
     @property
     def config(self):
+        return self.privateconfig["args"]
+
+    @property
+    def privateconfig(self):
         return globalconfig["reader"][self.typename]
+
+    @property
+    def publicconfig(self):
+        return globalconfig["ttscommon"]
 
     ########################
 
@@ -39,19 +48,26 @@ class TTSbase:
                 except:
                     _v = k
                 self.voiceshowlist.append(_v)
-            if globalconfig["reader"][self.typename]["voice"] not in self.voicelist:
-                globalconfig["reader"][self.typename]["voice"] = self.voicelist[0]
+            if self.privateconfig["voice"] not in self.voicelist:
+                self.privateconfig["voice"] = self.voicelist[0]
 
             showlistsignal.emit(
                 self.voiceshowlist,
-                self.voicelist.index(globalconfig["reader"][self.typename]["voice"]),
+                self.voicelist.index(self.privateconfig["voice"]),
             )
             self.loadok = True
 
         threading.Thread(target=_).start()
 
     def read(self, content, force=False):
+        def _(force, fname):
+            volume = self.publicconfig["volume"]
+            self.mp3playsignal.emit(fname, volume, force)
 
+        self.ttscallback(content, functools.partial(_, force))
+
+    @threader
+    def ttscallback(self, content, callback):
         if self.loadok == False:
             return
         if len(content) == 0:
@@ -59,14 +75,13 @@ class TTSbase:
         if len(self.voicelist) == 0:
             return
 
-        rate = globalconfig["ttscommon"]["rate"]
-        volume = globalconfig["ttscommon"]["volume"]
-        voice = globalconfig["reader"][self.typename]["voice"]
+        rate = self.publicconfig["rate"]
+        voice = self.privateconfig["voice"]
         voice_index = self.voicelist.index(voice)
-
-        def _():
+        try:
             fname = self.speak(content, rate, voice, voice_index)
             if fname:
-                self.mp3playsignal.emit(fname, volume, force)
-
-        threading.Thread(target=_).start()
+                callback(os.path.abspath(fname))
+        except:
+            print_exc()
+            return

@@ -28,7 +28,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/version)
 include(generate_product_version)
 
 set(VERSION_MAJOR 2)
-set(VERSION_MINOR 48)
+set(VERSION_MINOR 51)
 set(VERSION_PATCH 2)
 
 add_library(pch pch.cpp)

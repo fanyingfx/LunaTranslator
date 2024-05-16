@@ -20,7 +20,7 @@ from PyQt5.QtGui import QCloseEvent, QStandardItem, QStandardItemModel
 
 import qtawesome, importlib
 from myutils.config import globalconfig, _TR, _TRL
-from gui.usefulwidget import MySwitch, selectcolor, getsimpleswitch
+from gui.usefulwidget import MySwitch, selectcolor, getsimpleswitch, threebuttons
 from myutils.utils import makehtml
 from myutils.wrapper import Singleton
 
@@ -79,8 +79,7 @@ class noundictconfigdialog1(QDialog):
         button4.clicked.connect(clicked4)
         search.addWidget(button4)
 
-        button = QPushButton(self)
-        button.setText(_TR("添加行"))
+        button = threebuttons()
 
         def clicked1():
             self.configdict[configkey].insert(
@@ -88,27 +87,24 @@ class noundictconfigdialog1(QDialog):
             )
             self.newline(0, self.configdict[configkey][0])
 
-        button.clicked.connect(clicked1)
-        button2 = QPushButton(self)
-        button2.setText(_TR("删除选中行"))
+        button.btn1clicked.connect(clicked1)
 
         def clicked2():
             self.model.removeRow(table.currentIndex().row())
             self.configdict[configkey].pop(table.currentIndex().row())
 
-        button2.clicked.connect(clicked2)
+        button.btn2clicked.connect(clicked2)
+        button.btn3clicked.connect(self.apply)
         self.button = button
         self.configdict = configdict
         self.configkey = configkey
         formLayout.addWidget(table)
         formLayout.addLayout(search)
         formLayout.addWidget(button)
-        formLayout.addWidget(button2)
         self.resize(QSize(600, 400))
         self.show()
 
-    def closeEvent(self, a0: QCloseEvent) -> None:
-        self.button.setFocus()
+    def apply(self):
         rows = self.model.rowCount()
         rowoffset = 0
         dedump = set()
@@ -122,6 +118,10 @@ class noundictconfigdialog1(QDialog):
                 {"key": k, "value": v}
             )
             dedump.add(k)
+
+    def closeEvent(self, a0: QCloseEvent) -> None:
+        self.button.setFocus()
+        self.apply()
 
 
 @Singleton
@@ -144,31 +144,27 @@ class regexedit(QDialog):
         for row, regex in enumerate(regexlist):
             self.model.insertRow(row, [QStandardItem(regex)])
 
-        button = QPushButton(self)
-        button.setText(_TR("添加行"))
+        button = threebuttons()
 
         def clicked1():
             regexlist.insert(0, "")
             self.model.insertRow(0, [QStandardItem()])
 
-        button.clicked.connect(clicked1)
-        button2 = QPushButton(self)
-        button2.setText(_TR("删除选中行"))
+        button.btn1clicked.connect(clicked1)
 
         def clicked2():
             self.model.removeRow(table.currentIndex().row())
             regexlist.pop(table.currentIndex().row())
 
-        button2.clicked.connect(clicked2)
+        button.btn2clicked.connect(clicked2)
+        button.btn3clicked.connect(self.apply)
         self.button = button
         formLayout.addWidget(table)
         formLayout.addWidget(button)
-        formLayout.addWidget(button2)
         self.resize(QSize(600, 400))
         self.show()
 
-    def closeEvent(self, _) -> None:
-        self.button.setFocus()
+    def apply(self):
         rows = self.model.rowCount()
         rowoffset = 0
         dedump = set()
@@ -181,17 +177,20 @@ class regexedit(QDialog):
             self.regexlist[row - rowoffset] = regex
             dedump.add(regex)
 
+    def closeEvent(self, _) -> None:
+        self.button.setFocus()
+        self.apply()
 
-def autoinitdialog_items(dict):
+
+def autoinitdialog_items(dic):
     items = []
-    for arg in dict["args"]:
-        items.append({"l": arg, "d": dict["args"], "k": arg})
-        if "argstype" in dict and arg in dict["argstype"]:
+    for arg in dic["args"]:
+        default = dict(name=arg, d=dic["args"], k=arg, type="lineedit")
 
-            items[-1].update(dict["argstype"][arg])
-        else:
-            items[-1].update({"t": "lineedit"})
-    items.append({"t": "okcancel"})
+        if "argstype" in dic and arg in dic["argstype"]:
+            default.update(dic["argstype"][arg])
+        items.append(default)
+    items.append({"type": "okcancel"})
     return items
 
 
@@ -233,20 +232,18 @@ class autoinitdialog(QDialog):
                 edit.setText(res)
 
         for line in lines:
-            if "type" in line:
-                line["t"] = line["type"]
             if "d" in line:
                 dd = line["d"]
             if "k" in line:
                 key = line["k"]
-            if line["t"] == "label":
+            if line["type"] == "label":
 
                 if "islink" in line and line["islink"]:
                     lineW = QLabel(makehtml(dd[key]))
                     lineW.setOpenExternalLinks(True)
                 else:
                     lineW = QLabel(_TR(dd[key]))
-            elif line["t"] == "combo":
+            elif line["type"] == "combo":
                 lineW = QComboBox()
                 if "list_function" in line:
                     try:
@@ -264,7 +261,7 @@ class autoinitdialog(QDialog):
                 lineW.currentIndexChanged.connect(
                     functools.partial(dd.__setitem__, key)
                 )
-            elif line["t"] == "okcancel":
+            elif line["type"] == "okcancel":
                 lineW = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
                 lineW.rejected.connect(self.close)
                 lineW.accepted.connect(
@@ -275,10 +272,10 @@ class autoinitdialog(QDialog):
 
                 lineW.button(QDialogButtonBox.Ok).setText(_TR("确定"))
                 lineW.button(QDialogButtonBox.Cancel).setText(_TR("取消"))
-            elif line["t"] == "lineedit":
+            elif line["type"] == "lineedit":
                 lineW = QLineEdit(dd[key])
                 regist.append([dd, key, lineW.text])
-            elif line["t"] == "file":
+            elif line["type"] == "file":
                 e = QLineEdit(dd[key])
                 regist.append([dd, key, e.text])
                 bu = QPushButton(_TR("选择" + ("文件夹" if line["dir"] else "文件")))
@@ -294,10 +291,10 @@ class autoinitdialog(QDialog):
                 lineW = QHBoxLayout()
                 lineW.addWidget(e)
                 lineW.addWidget(bu)
-            elif line["t"] == "switch":
+            elif line["type"] == "switch":
                 lineW = MySwitch(sign=dd[key])
                 regist.append([dd, key, lineW.isChecked])
-            elif line["t"] == "spin":
+            elif line["type"] == "spin":
                 lineW = QDoubleSpinBox()
                 lineW.setMinimum(0 if "min" not in line else line["min"])
                 lineW.setMaximum(100 if "max" not in line else line["max"])
@@ -305,15 +302,15 @@ class autoinitdialog(QDialog):
                 lineW.setValue(dd[key])
                 lineW.valueChanged.connect(functools.partial(dd.__setitem__, key))
 
-            elif line["t"] == "intspin":
+            elif line["type"] == "intspin":
                 lineW = QSpinBox()
                 lineW.setMinimum(0 if "min" not in line else line["min"])
                 lineW.setMaximum(100 if "max" not in line else line["max"])
                 lineW.setSingleStep(1 if "step" not in line else line["step"])
                 lineW.setValue(dd[key])
                 lineW.valueChanged.connect(functools.partial(dd.__setitem__, key))
-            if "l" in line:
-                formLayout.addRow(_TR(line["l"]), lineW)
+            if "name" in line:
+                formLayout.addRow(_TR(line["name"]), lineW)
             else:
                 formLayout.addRow(lineW)
         self.show()
@@ -327,8 +324,15 @@ def getsomepath1(
         title,
         800,
         [
-            {"t": "file", "l": label, "d": d, "k": k, "dir": isdir, "filter": filter1},
-            {"t": "okcancel", "callback": callback},
+            {
+                "type": "file",
+                "name": label,
+                "d": d,
+                "k": k,
+                "dir": isdir,
+                "filter": filter1,
+            },
+            {"type": "okcancel", "callback": callback},
         ],
     )
 
@@ -391,15 +395,16 @@ class postconfigdialog_(QDialog):
     def closeEvent(self, a0: QCloseEvent) -> None:
         if self.closeevent:
             self.button.setFocus()
-            rows = self.model.rowCount()
-            newdict = {}
-            for row in range(rows):
-                if self.model.item(row, 0).text() == "":
-                    continue
-                newdict[(self.model.item(row, 0).text())] = self.model.item(
-                    row, 1
-                ).text()
-            self.configdict[self.key] = newdict
+            self.apply()
+
+    def apply(self):
+        rows = self.model.rowCount()
+        newdict = {}
+        for row in range(rows):
+            if self.model.item(row, 0).text() == "":
+                continue
+            newdict[(self.model.item(row, 0).text())] = self.model.item(row, 1).text()
+        self.configdict[self.key] = newdict
 
     def __init__(self, parent, configdict, title) -> None:
         super().__init__(parent, Qt.WindowCloseButtonHint)
@@ -436,21 +441,19 @@ class postconfigdialog_(QDialog):
         table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         # table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         # table.clicked.connect(self.show_info)
-        button = QPushButton(self)
-        button.setText(_TR("添加行"))
+        button = threebuttons()
 
         def clicked1():
             model.insertRow(0, [QStandardItem(), QStandardItem()])
 
-        button.clicked.connect(clicked1)
-        button2 = QPushButton(self)
-        button2.setText(_TR("删除选中行"))
+        button.btn1clicked.connect(clicked1)
 
         def clicked2():
 
             model.removeRow(table.currentIndex().row())
 
-        button2.clicked.connect(clicked2)
+        button.btn2clicked.connect(clicked2)
+        button.btn3clicked.connect(self.apply)
         self.button = button
         self.model = model
         self.key = key
@@ -481,7 +484,6 @@ class postconfigdialog_(QDialog):
         formLayout.addWidget(table)
         formLayout.addLayout(search)
         formLayout.addWidget(button)
-        formLayout.addWidget(button2)
         self.resize(QSize(600, 400))
         self.show()
 

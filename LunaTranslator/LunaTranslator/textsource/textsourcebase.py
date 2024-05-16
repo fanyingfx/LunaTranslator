@@ -147,5 +147,4 @@ class basetext:
     def runonce(self):
         t = self.gettextonce()
         if t:
-            self.textgetmethod(self.gettextonce(), False)
-        # globalconfig["showfanyi"] = False
+            self.textgetmethod(t, False)

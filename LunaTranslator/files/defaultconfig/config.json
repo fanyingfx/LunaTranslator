@@ -75,7 +75,10 @@
     "button_color_close": "#D32424",
     "button_color_normal": "#FFFFFF",
     "textthreaddelay": 500,
-    "flushbuffersize": 3000,
+    "maxBufferSize": 3000,
+    "maxHistorySize": 1000000,
+    "yuanjiao_r": 0,
+    "yuanjiao_merge": false,
     "transuigeo": [
         500,
         500,
@@ -157,7 +160,7 @@
     "miaobianwidth2": 3,
     "miaobianwidth": 1,
     "miaobiancolor": "#eeeeee",
-    "zitiyangshi": 2,
+    "zitiyangshi2": 5,
     "hira_vis_type": 0,
     "iskongxin": true,
     "isshowrawtext": true,
@@ -167,12 +170,26 @@
     "isshowhira": false,
     "locktools": true,
     "showfanyisource": false,
-    "use_yapi": true,
+    "use_yapi": false,
     "showfanyi": true,
     "autoread": false,
     "ttsnointerrupt": false,
     "show_fenci": false,
     "jiamingcolor": "black",
+    "ankiconnect": {
+        "port": 8765,
+        "DeckName": "lunadeck",
+        "ModelName2": "lunamodel2",
+        "allowDuplicate": true,
+        "autoUpdateModel": true,
+        "ocrcroped": false
+    },
+    "ankiwindow": [
+        100,
+        100,
+        600,
+        600
+    ],
     "settingfonttype": "Arial",
     "showintab_sub": false,
     "setting_geo_2": [
@@ -193,8 +210,6 @@
     "premtsimiuse": false,
     "buttoncolor": "#001f9f",
     "premtsimi": 5,
-    "tabfont_chs": 18,
-    "tabfont_otherlang": 10,
     "ocrrangecolor": "#000000",
     "ocrrangewidth": 2,
     "useproxy": true,
@@ -417,6 +432,7 @@
     "shadowcolor": "blue",
     "ocr_hori_extend": true,
     "shadowforce": 5,
+    "traceoffset": 2,
     "showcixing_touming": 30,
     "cixingcolor": {
         "形容詞": "aliceblue",
@@ -639,39 +655,113 @@
         "voiceroid2": {
             "use": false,
             "voice": "",
-            "path": "",
-            "name": "VoiceRoid2"
+            "name": "VoiceRoid2",
+            "args": {
+                "path": ""
+            },
+            "argstype": {
+                "path": {
+                    "type": "file",
+                    "name": "路径",
+                    "dir": true
+                }
+            }
         },
         "voiceroidplus": {
             "use": false,
             "voice": "",
-            "path": "",
-            "name": "VoiceRoid+"
+            "name": "VoiceRoid+",
+            "args": {
+                "path": ""
+            },
+            "argstype": {
+                "path": {
+                    "type": "file",
+                    "name": "路径",
+                    "dir": true
+                }
+            }
         },
         "voicevox": {
             "use": false,
             "voice": "",
-            "path": "",
-            "name": "VOICEVOX"
+            "name": "VOICEVOX",
+            "args": {
+                "path": "",
+                "Port": 50021
+            },
+            "argstype": {
+                "Port": {
+                    "type": "intspin",
+                    "min": 1,
+                    "max": 65535,
+                    "step": 1,
+                    "name": "端口号"
+                },
+                "path": {
+                    "type": "file",
+                    "name": "路径",
+                    "dir": true
+                }
+            }
         },
         "vitsSimpleAPI": {
             "use": false,
             "voice": "",
-            "name": "vits-simple-api"
+            "name": "vits-simple-api",
+            "args": {
+                "Port": 23456,
+                "preset": ""
+            },
+            "argstype": {
+                "Port": {
+                    "type": "intspin",
+                    "min": 1,
+                    "max": 65535,
+                    "step": 1,
+                    "name": "端口号"
+                },
+                "preset": {
+                    "name": "GPT-SOVITS preset"
+                }
+            }
+        },
+        "gtts": {
+            "use": false,
+            "name": "谷歌",
+            "voice": ""
         }
     },
     "hirasetting": {
         "mecab": {
             "use": false,
-            "path": "",
             "name": "MeCab",
-            "codec": 0
+            "args": {
+                "path": "",
+                "codec": 0
+            },
+            "argstype": {
+                "path": {
+                    "type": "file",
+                    "name": "路径",
+                    "dir": true
+                },
+                "codec": {
+                    "type": "combo",
+                    "name": "编码",
+                    "list": [
+                        "utf8",
+                        "shiftjis"
+                    ]
+                }
+            }
         },
         "mojinlt": {
             "use": false,
-            "token": "",
-            "token_name": "Moji NLT Token",
-            "name": "mojinlt"
+            "name": "mojinlt",
+            "args": {
+                "Moji NLT Token": ""
+            }
         },
         "latin": {
             "use": false,
@@ -680,48 +770,158 @@
     },
     "cishu": {
         "xiaoxueguan": {
+            "args": {
+                "path": "",
+                "priority": 100
+            },
+            "argstype": {
+                "path": {
+                    "type": "file",
+                    "name": "路径",
+                    "dir": false,
+                    "filter": "*.db"
+                },
+                "priority": {
+                    "type": "intspin",
+                    "name": "优先级",
+                    "min": 0,
+                    "max": 10000,
+                    "step": 1
+                }
+            },
             "use": false,
-            "path": "",
-            "name": "小学馆",
-            "filter": "*.db",
-            "isdir": false
+            "name": "小学馆"
         },
         "edict": {
             "use": false,
-            "path": "",
             "name": "EDICT",
-            "filter": "*.db",
-            "isdir": false
+            "args": {
+                "path": "",
+                "priority": 100
+            },
+            "argstype": {
+                "path": {
+                    "type": "file",
+                    "name": "路径",
+                    "dir": false,
+                    "filter": "*.db"
+                },
+                "priority": {
+                    "type": "intspin",
+                    "name": "优先级",
+                    "min": 0,
+                    "max": 10000,
+                    "step": 1
+                }
+            }
         },
         "edict2": {
             "use": false,
-            "path": "",
             "name": "EDICT2",
-            "filter": "",
-            "isdir": false
+            "args": {
+                "path": "",
+                "priority": 100
+            },
+            "argstype": {
+                "path": {
+                    "type": "file",
+                    "name": "路径",
+                    "dir": false
+                },
+                "priority": {
+                    "type": "intspin",
+                    "name": "优先级",
+                    "min": 0,
+                    "max": 10000,
+                    "step": 1
+                }
+            }
         },
         "linggesi": {
             "use": false,
-            "path": "",
             "name": "灵格斯词典",
-            "filter": "",
-            "isdir": true
+            "args": {
+                "path": "",
+                "priority": 100
+            },
+            "argstype": {
+                "path": {
+                    "type": "file",
+                    "name": "路径",
+                    "dir": true
+                },
+                "priority": {
+                    "type": "intspin",
+                    "name": "优先级",
+                    "min": 0,
+                    "max": 10000,
+                    "step": 1
+                }
+            }
         },
         "mojidict": {
             "use": false,
-            "name": "Moji辞书"
+            "name": "Moji辞书",
+            "args": {
+                "priority": 100
+            },
+            "argstype": {
+                "priority": {
+                    "type": "intspin",
+                    "name": "优先级",
+                    "min": 0,
+                    "max": 10000,
+                    "step": 1
+                }
+            }
         },
         "youdao": {
             "use": false,
-            "name": "youdao"
+            "name": "有道",
+            "args": {
+                "priority": 100
+            },
+            "argstype": {
+                "priority": {
+                    "type": "intspin",
+                    "name": "优先级",
+                    "min": 0,
+                    "max": 10000,
+                    "step": 1
+                }
+            }
         },
         "weblio": {
             "use": false,
-            "name": "weblio"
+            "name": "weblio",
+            "args": {
+                "priority": 100
+            },
+            "argstype": {
+                "priority": {
+                    "type": "intspin",
+                    "name": "优先级",
+                    "min": 0,
+                    "max": 10000,
+                    "step": 1
+                }
+            }
         },
         "goo": {
             "use": false,
-            "name": "goo"
+            "name": "goo",
+            "args": {
+                "priority": 100
+            },
+            "argstype": {
+                "priority": {
+                    "type": "intspin",
+                    "name": "优先级",
+                    "min": 0,
+                    "max": 10000,
+                    "step": 1
+                }
+            }
         }
     },
     "darklight": 0,
@@ -765,7 +965,7 @@
         },
         "baiduocr_X": {
             "use": false,
-            "name": "baiduOCR_X"
+            "name": "百度OCR"
         },
         "txocr": {
             "use": false,
@@ -777,7 +977,7 @@
         },
         "feishu": {
             "use": false,
-            "name": "飞书"
+            "name": "飞书OCR"
         },
         "ocrspace": {
             "use": false,
@@ -790,6 +990,10 @@
         "googlecloudvision": {
             "use": false,
             "name": "googlecloudvision"
+        },
+        "xunfei": {
+            "use": false,
+            "name": "讯飞OCR"
         },
         "youdaocr": {
             "use": false,
@@ -931,12 +1135,6 @@
             "color": "blue",
             "type": "dev",
             "name": "百度"
-        },
-        "dev_baidu_ai": {
-            "use": false,
-            "color": "blue",
-            "type": "dev",
-            "name": "百度_ai"
         },
         "google_dev": {
             "use": false,

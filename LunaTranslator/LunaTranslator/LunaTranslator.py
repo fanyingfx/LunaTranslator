@@ -45,15 +45,6 @@ from winsharedutils import pid_running
 from myutils.post import POSTSOLVE
 
 
-class _autolock:
-    def __init__(self, lock) -> None:
-        self.lock = lock
-        lock.acquire()
-
-    def __del__(self):
-        self.lock.release()
-
-
 class MAINUI:
     def __init__(self) -> None:
         super().__init__()
@@ -143,7 +134,12 @@ class MAINUI:
     def textgetmethod(
         self, text, is_auto_run=True, embedcallback=None, onlytrans=False
     ):
-        _autolock(self.solvegottextlock)
+        with self.solvegottextlock:
+            return self.textgetmethod_1(text, is_auto_run, embedcallback, onlytrans)
+
+    def textgetmethod_1(
+        self, text, is_auto_run=True, embedcallback=None, onlytrans=False
+    ):
 
         returnandembedcallback = lambda: embedcallback("") if embedcallback else ""
 
@@ -423,7 +419,7 @@ class MAINUI:
                         text, savehook_new_data[self.textsource.pname]
                     )
                 except:
-                    print_exc()
+                    pass
                 self.reader.read(text, force)
         except:
             print_exc()
@@ -500,12 +496,13 @@ class MAINUI:
                         == False
                     ):
                         continue
-                    _hira = importlib.import_module("hiraparse." + name).hira
+                    _hira = importlib.import_module("hiraparse." + name)
+                    _hira = getattr(_hira, name)
                     break
 
             try:
                 if _hira:
-                    self.hira_ = _hira()
+                    self.hira_ = _hira(name)
                 else:
                     self.hira_ = None
             except:
@@ -591,22 +588,7 @@ class MAINUI:
         except:
             return
 
-        class cishuwrapper:
-            def __init__(self, _type) -> None:
-                self._ = _type()
-
-            @threader
-            def search(self, sentence):
-                try:
-                    res = self._.search(sentence)
-                    if res is None or res == "":
-                        return
-                    self.callback(res)
-                except:
-                    pass
-
-        _ = cishuwrapper(aclass)
-        return _
+        return aclass(type_)
 
     def onwindowloadautohook(self):
         textsourceusing = globalconfig["sourcestatus2"]["texthook"]["use"]

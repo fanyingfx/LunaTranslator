@@ -10,19 +10,21 @@ from myutils.subproc import subproc_w, autoproc
 class TTS(TTSbase):
 
     def init(self):
-
-        if (
-            os.path.exists(self.config["path"]) == False
-            or os.path.exists(os.path.join(self.config["path"], "run.exe")) == False
+        for cwd in (
+            self.config["path"],
+            os.path.join(self.config["path"], "vv-engine"),
         ):
-            return
-        self.engine = autoproc(
-            subproc_w(
-                os.path.join(self.config["path"], "run.exe"),
-                cwd=self.config["path"],
-                name="voicevox",
+            run = os.path.join(cwd, "run.exe")
+            if os.path.exists(run) == False:
+                return
+            self.engine = autoproc(
+                subproc_w(
+                    run,
+                    cwd=cwd,
+                    name="voicevox",
+                )
             )
-        )
+            break
 
     def getvoicelist(self):
         while True:
@@ -46,7 +48,7 @@ class TTS(TTSbase):
                 }
 
                 response = requests.get(
-                    "http://127.0.0.1:50021/speakers",
+                    f"http://127.0.0.1:{self.config['Port']}/speakers",
                     headers=headers,
                     proxies={"http": None, "https": None},
                 ).json()
@@ -72,36 +74,33 @@ class TTS(TTSbase):
 
     def speak(self, content, rate, voice, voiceidx):
 
-        # def _():
-        if True:
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
 
-            headers = {
-                "Content-Type": "application/x-www-form-urlencoded",
-            }
+        params = {"speaker": voiceidx, "text": content}
 
-            params = {"speaker": voiceidx, "text": content}
-
-            response = requests.post(
-                "http://localhost:50021/audio_query",
-                params=params,
-                headers=headers,
-                proxies={"http": None, "https": None},
-            )
-            print(response.json())
-            fname = str(time.time())
-            headers = {
-                "Content-Type": "application/json",
-            }
-            params = {
-                "speaker": voiceidx,
-            }
-            response = requests.post(
-                "http://localhost:50021/synthesis",
-                params=params,
-                headers=headers,
-                data=json.dumps(response.json()),
-            )
-            os.makedirs("./cache/tts/", exist_ok=True)
-            with open("./cache/tts/" + fname + ".wav", "wb") as ff:
-                ff.write(response.content)
-            return "./cache/tts/" + fname + ".wav"
+        response = requests.post(
+            f"http://localhost:{self.config['Port']}/audio_query",
+            params=params,
+            headers=headers,
+            proxies={"http": None, "https": None},
+        )
+        print(response.json())
+        fname = str(time.time())
+        headers = {
+            "Content-Type": "application/json",
+        }
+        params = {
+            "speaker": voiceidx,
+        }
+        response = requests.post(
+            f"http://localhost:{self.config['Port']}/synthesis",
+            params=params,
+            headers=headers,
+            data=json.dumps(response.json()),
+        )
+        os.makedirs("./cache/tts/", exist_ok=True)
+        with open("./cache/tts/" + fname + ".wav", "wb") as ff:
+            ff.write(response.content)
+        return "./cache/tts/" + fname + ".wav"
