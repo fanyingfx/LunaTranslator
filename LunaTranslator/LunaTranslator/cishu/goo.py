@@ -17,5 +17,10 @@ class goo(cishubase):
         xx = re.sub("<a([\\s\\S]*?)>", "", xx)
 
         xx = re.sub("</a>", "", xx)
-
-        return xx
+        if len(xx):
+            return (
+                '<div  style="text-align: center;"><a href="{}">link</a></div>'.format(
+                    url
+                )
+                + xx
+            )

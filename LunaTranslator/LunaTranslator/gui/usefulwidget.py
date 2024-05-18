@@ -11,14 +11,14 @@ from PyQt5.QtWidgets import (
     QWidget,
     QLayout,
 )
+from PyQt5.QtGui import QFontDatabase
 
 from webviewpy import (
-    webview_error_t,
     webview_native_handle_kind_t,
     Webview,
     declare_library_path,
 )
-from PyQt5.QtGui import QCursor, QCloseEvent, QColor, QTextCursor, QResizeEvent
+from PyQt5.QtGui import QCloseEvent, QColor, QTextCursor, QResizeEvent
 from PyQt5.QtCore import Qt, pyqtSignal, QSize
 from myutils.config import _TR, globalconfig
 from PyQt5.QtWidgets import (
@@ -399,9 +399,10 @@ def getsimplecombobox(lst, d, k, callback=None):
     return s
 
 
-def getlineedit(d, key, callback=None):
+def getlineedit(d, key, callback=None, readonly=False):
     s = QLineEdit()
     s.setText(d[key])
+    s.setReadOnly(readonly)
     s.textChanged.connect(functools.partial(callbackwrap, d, key, callback))
     return s
 
@@ -580,7 +581,7 @@ class WebivewWidget(QWidget):
             size = getscaledrect(a0.size())
             windows.MoveWindow(hwnd, 0, 0, size[0], size[1], True)
 
-    def set_html(self, html):
+    def setHtml(self, html):
         self.webview.set_html(html)
 
 
@@ -611,20 +612,63 @@ class mshtmlWidget(QWidget):
         size = getscaledrect(a0.size())
         self.browser.resize(0, 0, size[0], size[1])
 
-    def set_html(self, html):
-        print("not support, please use webview2")
+    def setHtml(self, html):
+        html = """<html><head><meta http-equiv='x-ua-compatible' content='IE=edge'></head><body style=" font-family:'{}'">{}</body></html>""".format(
+            QFontDatabase.systemFont(QFontDatabase.GeneralFont).family(), html
+        )
+        self.browser.set_html(html)
 
 
-def auto_select_webview(parent):
+class auto_select_webview(QWidget):
+    on_load = pyqtSignal(str)
 
-    if globalconfig["usewebview"] == 0:
-        browser = mshtmlWidget(parent)
-    elif globalconfig["usewebview"] == 1:
-        try:
-            browser = WebivewWidget(parent, True)
-        except Exception:
-            browser = mshtmlWidget(parent)
-    return browser
+    def clear(self):
+        self.navigate("about:blank")
+
+    def navigate(self, url):
+        self._maybecreate()
+        self.internal.navigate(url)
+
+    def setHtml(self, html):
+        self._maybecreate()
+        self.internal.setHtml(html)
+
+    def navigate(self, url):
+        self._maybecreate()
+        self.internal.navigate(url)
+
+    def __init__(self, parent) -> None:
+        super().__init__(parent)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.cantusewebview2 = False
+        self.internal = None
+        self.contex = -1
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(layout)
+        self._maybecreate()
+
+    def _maybecreate(self):
+        if globalconfig["usewebview"] != self.contex:
+            if globalconfig["usewebview"] == 1 and self.cantusewebview2:
+                return
+            if self.internal:
+                self.layout().removeWidget(self.internal)
+            self.internal = self._createwebview()
+            self.layout().addWidget(self.internal)
+
+    def _createwebview(self):
+        self.contex = globalconfig["usewebview"]
+        if self.contex == 0:
+            browser = mshtmlWidget(self)
+        elif self.contex == 1:
+            try:
+                browser = WebivewWidget(self, True)
+            except Exception:
+                self.cantusewebview2 = True
+                browser = mshtmlWidget(self)
+        browser.on_load.connect(self.on_load)
+        return browser
 
 
 class threebuttons(QWidget):

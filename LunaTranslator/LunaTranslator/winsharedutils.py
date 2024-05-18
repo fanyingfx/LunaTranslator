@@ -46,7 +46,15 @@ _SAPI_List.restype = POINTER(c_wchar_p)
 
 
 _SAPI_Speak = utilsdll.SAPI_Speak
-_SAPI_Speak.argtypes = c_wchar_p, c_uint, c_uint, c_uint, c_uint, c_wchar_p
+_SAPI_Speak.argtypes = (
+    c_wchar_p,
+    c_uint,
+    c_uint,
+    c_uint,
+    c_uint,
+    POINTER(c_int),
+    POINTER(c_void_p),
+)
 _SAPI_Speak.restype = c_bool
 
 
@@ -100,9 +108,17 @@ def SAPI_List(v):
     return ret
 
 
-def SAPI_Speak(content, v, voiceid, rate, volume, Filename):
-
-    return _SAPI_Speak(content, v, voiceid, int(rate), int(volume), Filename)
+def SAPI_Speak(content, v, voiceid, rate, volume):
+    length = c_int()
+    buff = c_void_p()
+    succ = _SAPI_Speak(
+        content, v, voiceid, int(rate), int(volume), pointer(length), pointer(buff)
+    )
+    if not succ:
+        return None
+    data = cast(buff, POINTER(c_char))[: length.value]
+    c_free(buff)
+    return data
 
 
 def distance(s1, s2):
@@ -169,11 +185,16 @@ html_release = utilsdll.html_release
 html_release.argtypes = (c_void_p,)
 html_get_current_url = utilsdll.html_get_current_url
 html_get_current_url.argtypes = c_void_p, c_wchar_p
+html_set_html = utilsdll.html_set_html
+html_set_html.argtypes = c_void_p, c_wchar_p,
 
 
 class HTMLBrowser:
     def __init__(self, parent) -> None:
         self.html = html_new(parent)
+
+    def set_html(self, html):
+        html_set_html(self.html, html)
 
     def resize(
         self,

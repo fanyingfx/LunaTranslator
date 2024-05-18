@@ -1,6 +1,6 @@
 from myutils.config import globalconfig
 from myutils.wrapper import threader
-
+from traceback import print_exc
 
 class cishubase:
     def init(self):
@@ -28,11 +28,11 @@ class cishubase:
             try:
                 res = self.search(sentence)
             except:
+                print_exc()
                 self.needinit = True
 
-            if res is None or res == "":
-                return
-            self.callback(res)
+            if res and len(res):
+                self.callback(res)
         except:
             pass
 

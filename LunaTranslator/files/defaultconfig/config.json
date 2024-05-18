@@ -54,6 +54,7 @@
         "changecharset": false,
         "changecharset_charset": 2
     },
+    "ffmpeg": "",
     "requestinterval": 1,
     "keepontop": true,
     "buttonsize": 20,
@@ -179,10 +180,11 @@
     "ankiconnect": {
         "port": 8765,
         "DeckName": "lunadeck",
-        "ModelName2": "lunamodel2",
+        "ModelName3": "lunamodel3",
         "allowDuplicate": true,
         "autoUpdateModel": true,
-        "ocrcroped": false
+        "ocrcroped": false,
+        "autoruntts": false
     },
     "ankiwindow": [
         100,
@@ -190,6 +192,7 @@
         600,
         600
     ],
+    "searchwordusewebview": false,
     "settingfonttype": "Arial",
     "showintab_sub": false,
     "setting_geo_2": [
@@ -655,22 +658,7 @@
         "voiceroid2": {
             "use": false,
             "voice": "",
-            "name": "VoiceRoid2",
-            "args": {
-                "path": ""
-            },
-            "argstype": {
-                "path": {
-                    "type": "file",
-                    "name": "路径",
-                    "dir": true
-                }
-            }
-        },
-        "voiceroidplus": {
-            "use": false,
-            "voice": "",
-            "name": "VoiceRoid+",
+            "name": "VoiceRoid2/VoiceRoid+",
             "args": {
                 "path": ""
             },
@@ -907,6 +895,28 @@
                 }
             }
         },
+        "yomichan": {
+            "use": false,
+            "name": "yomichan termbank",
+            "args": {
+                "path": "",
+                "priority": 100
+            },
+            "argstype": {
+                "path": {
+                    "type": "file",
+                    "name": "路径",
+                    "dir": true
+                },
+                "priority": {
+                    "type": "intspin",
+                    "name": "优先级",
+                    "min": 0,
+                    "max": 10000,
+                    "step": 1
+                }
+            }
+        },
         "goo": {
             "use": false,
             "name": "goo",
@@ -914,6 +924,38 @@
                 "priority": 100
             },
             "argstype": {
+                "priority": {
+                    "type": "intspin",
+                    "name": "优先级",
+                    "min": 0,
+                    "max": 10000,
+                    "step": 1
+                }
+            }
+        },
+        "mdict": {
+            "use": false,
+            "name": "mdict",
+            "args": {
+                "path": "",
+                "ambiguity": 0,
+                "priority": 100
+            },
+            "argstype": {
+                "path": {
+                    "type": "file",
+                    "name": "路径",
+                    "dir": false,
+                    "multi": true,
+                    "filter": "*.mdx|*.mdd"
+                },
+                "ambiguity": {
+                    "type": "intspin",
+                    "name": "ambiguity",
+                    "min": 0,
+                    "max": 3,
+                    "step": 1
+                },
                 "priority": {
                     "type": "intspin",
                     "name": "优先级",

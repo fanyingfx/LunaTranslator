@@ -243,9 +243,9 @@ class wavmp3player:
         self.lock.acquire()
         threading.Thread(target=self.dotasks).start()
 
-    def mp3playfunction(self, path, volume, force):
+    def mp3playfunction(self, binary, volume, force):
         try:
-            self.tasks = (path, volume, force)
+            self.tasks = (binary, volume, force)
             self.lock.release()
         except:
             pass
@@ -259,12 +259,14 @@ class wavmp3player:
                 self.tasks = None
                 if task is None:
                     continue
-                path, volume, force = task
+                binary, volume, force = task
+                os.makedirs("./cache/tts", exist_ok=True)
 
-                if os.path.exists(path) == False:
-                    continue
-                durationms = self._playsoundWin(path, volume)
-
+                tgt = os.path.abspath("./cache/tts/" + str(time.time()) + ".wav")
+                with open(tgt, "wb") as ff:
+                    ff.write(binary)
+                durationms = self._playsoundWin(tgt, volume)
+                self.lastfile = tgt
                 if durationms and globalconfig["ttsnointerrupt"]:
                     while durationms > 0:
                         durationms -= 100

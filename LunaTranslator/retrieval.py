@@ -182,6 +182,7 @@ copycheck(
     os.path.join(py37Path, "Lib/site-packages/PyQt5/Qt5/bin/Qt5Gui.dll"),
     os.path.join(runtime, "PyQt5/Qt5/bin"),
 )
+
 copycheck(
     os.path.join(py37Path, "Lib/site-packages/PyQt5/Qt5/bin/Qt5Widgets.dll"),
     os.path.join(runtime, "PyQt5/Qt5/bin"),
