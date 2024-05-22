@@ -7,7 +7,7 @@ from cishu.cishubase import cishubase
 
 class edict2(cishubase):
     def init(self):
-        self.sql = None
+        self.save = None
         try:
             path = self.config["path"]
             if os.path.exists(path):
@@ -25,15 +25,17 @@ class edict2(cishubase):
             print_exc()
 
     def search(self, word):
-
+        if not self.save:
+            return
         dis = 9999
         dis = []
         savew = []
         for w in self.save:
             if word in w or w in word:
                 d = winsharedutils.distance(w, word)
-                dis.append(d)
-                savew.append(w)
+                if d <= self.config["distance"]:
+                    dis.append(d)
+                    savew.append(w)
         saveres = []
         srt = argsort(dis)
         for ii in srt:

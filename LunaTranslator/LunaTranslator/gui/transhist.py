@@ -1,8 +1,6 @@
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QTabWidget, QTextBrowser, QAction, QMenu, QFileDialog
+from PyQt5.QtWidgets import QPlainTextEdit, QAction, QMenu, QFileDialog
 from PyQt5.QtCore import Qt, pyqtSignal
-import qtawesome, functools
-
+import qtawesome, functools, winsharedutils
 from gui.usefulwidget import closeashidewindow
 from myutils.config import globalconfig, _TR
 
@@ -27,14 +25,13 @@ class transhist(closeashidewindow):
         self.setWindowIcon(qtawesome.icon("fa.rotate-left"))
 
         def gettb(_type):
-            textOutput = QTextBrowser()
+            textOutput = QPlainTextEdit()
             textOutput.setContextMenuPolicy(Qt.CustomContextMenu)
             textOutput.customContextMenuRequested.connect(
                 functools.partial(self.showmenu, textOutput, _type)
             )
             textOutput.setUndoRedoEnabled(False)
             textOutput.setReadOnly(True)
-            textOutput.setObjectName("textOutput")
             return textOutput
 
         self.textOutput = gettb(1)
@@ -46,10 +43,13 @@ class transhist(closeashidewindow):
         menu = QMenu(self)
         qingkong = QAction(_TR("清空"))
         baocun = QAction(_TR("保存"))
+        copy = QAction(_TR("复制到剪贴板"))
         hideshowraw = QAction(_TR("显示原文" if self.hiderawflag else "不显示原文"))
         hideshowapi = QAction(_TR("显示api" if self.hideapiflag else "不显示api"))
         menu.addAction(qingkong)
         menu.addAction(baocun)
+        if len(self.textOutput.textCursor().selectedText()):
+            menu.addAction(copy)
         if flag == 1:
             menu.addAction(hideshowraw)
             menu.addAction(hideshowapi)
@@ -57,6 +57,8 @@ class transhist(closeashidewindow):
         action = menu.exec(self.mapToGlobal(p))
         if action == qingkong:
             tb.clear()
+        elif action == copy:
+            winsharedutils.clipboard_set(self.textOutput.textCursor().selectedText())
         elif action == baocun:
             ff = QFileDialog.getSaveFileName(self, directory="save.txt")
             if ff[0] == "":
@@ -72,14 +74,14 @@ class transhist(closeashidewindow):
 
     def getnewsentence(self, sentence):
 
-        sentence = "<hr>" if globalconfig["hist_split"] else "\n" + sentence
+        sentence = "\n" + sentence
         if self.hiderawflag:
             sentence = ""
-        self.textOutput.append(sentence)
+        self.textOutput.appendPlainText(sentence)
 
     def getnewtrans(self, api, sentence):
         if self.hideapiflag:
             res = sentence
         else:
             res = api + "  " + sentence
-        self.textOutput.append(res)
+        self.textOutput.appendPlainText(res)

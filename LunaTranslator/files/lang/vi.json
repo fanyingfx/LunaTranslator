@@ -57,7 +57,6 @@
     "最短翻译字数": "Số lượng từ phiên dịch ngắn nhất",
     "最长翻译字数": "Số lượng từ phiên dịch dài nhất",
     "预翻译采用模糊匹配": "Sử dụng Blur Match",
-    "模糊匹配相似度限制": "Giới hạn độ tương đồng phù hợp mờ",
     "录制翻译文件": "Ghi lại tập tin dịch",
     "导出的第一翻译源": "Nguồn dịch đầu tiên xuất khẩu",
     "离线翻译": "Dịch ngoại tuyến",
@@ -331,7 +330,6 @@
     "xml目录": "Thư mục XML",
     "说明": "Mô tả",
     "分析图像更新+周期执行": "Phân tích cập nhật hình ảnh+thực hiện chu kỳ",
-    "模糊匹配相似度": "Độ tương đồng phù hợp mờ",
     "翻译器字体": "Bộ dịch",
     "设置界面字体": "Đặt phông giao diện",
     "专有名词翻译设置按钮": "Nút cài đặt danh từ độc quyền",
@@ -789,8 +787,12 @@
     "截图后进行OCR": "OCR sau khi chụp ảnh màn hình",
     "优先级": "Ưu tiên",
     "编码": "Mã hóa",
-    "安装录音驱动": "Cài đặt Recording Drive",
-    "录音": "Ghi âm",
     "自动TTS": "Tự động TTS",
-    "使用webview显示": "Sử dụng WebView để hiển thị"
+    "使用webview显示": "Sử dụng WebView để hiển thị",
+    "录音时模拟按键": "Mô phỏng các phím khi ghi âm",
+    "窗口截图": "Ảnh chụp cửa sổ",
+    "自动截图": "Ảnh chụp màn hình tự động",
+    "模糊匹配": "Phù hợp mờ",
+    "相似度": "Tương tự",
+    "编辑距离": "Chỉnh sửa khoảng cách"
 }

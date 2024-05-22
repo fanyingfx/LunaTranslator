@@ -2330,137 +2330,328 @@ class mdict(cishubase):
             if os.path.exists(f):
                 try:
                     self.builders.append((IndexBuilder(f), f))
+                    # with open('1.txt','a',encoding='utf8') as ff:
+                    #     print(f,file=ff)
+                    #     print(self.builders[-1][0].get_mdx_keys(),file=ff)
+                    #     print(self.builders[-1][0].get_mdd_keys(),file=ff)
                 except:
-                    pass
+                    from traceback import print_exc
+
+                    print_exc()
 
     def querycomplex(self, word, index):
-        # 0 严格，1 前缀，2 后缀，3 中缀
         results = []
-        results += index(word)
-        if self.config["ambiguity"] == 0:
-            results = results[:1]
-        if self.config["ambiguity"] >= 2:
-            for k in index("*" + word):
-                if k not in results:
-                    results.append(k)
-        if self.config["ambiguity"] >= 3:
-            for k in index("*" + word + "*"):
-                if k not in results:
-                    results.append(k)
-        return results
+        diss = {}
+        import winsharedutils
+
+        for k in index("*" + word + "*"):
+            dis = winsharedutils.distance(k, word)
+            if dis <= self.config["distance"]:
+                results.append(k)
+                diss[k] = dis
+
+        return sorted(results, key=lambda x: diss[x])
 
     def parse_strings(self, input_string):
         parsed_strings = []
         current_string = ""
         current_number = ""
+        isin = False
+        for c in input_string:
+            if c == "`":
 
-        i = 0
-        while i < len(input_string):
-            if input_string[i] == "`":
-                if current_number and current_string:
-                    parsed_strings.append((current_number, current_string))
-                    current_number = ""
-                    current_string = ""
-                i += 1
-            elif input_string[i].isdigit():
-                current_number += input_string[i]
-                i += 1
+                isin = not isin
+                if isin and len(current_number):
+                    if len(current_string):
+                        parsed_strings.append((int(current_number), current_string))
+                        current_number = ""
+                        current_string = ""
+                    else:
+                        isin = not isin
+            elif c.isdigit() and isin:
+                current_number += c
             else:
-                current_string += input_string[i]
-                i += 1
-
-        if current_number and current_string:
-            parsed_strings.append((current_number, current_string))
+                current_string += c
+        if current_string:
+            if current_number:
+                parsed_strings.append((int(current_number), current_string))
+            else:
+                parsed_strings.append(((current_number), current_string))
 
         return parsed_strings
 
     def parseashtml(self, item):
-        item = item.replace("\r\n", "<br>")
+
         items = self.parse_strings(item)
+
         html = ""
+
         for type_, string in items:
-            if type_ == "1":
-                html += f'<font color="#FF0000" size=5>{string}</font>'
-            elif type_ == "2":
-                html += f'<font color="#0000FF">{string}</font>'
-            elif type_ == "3":
-                html += (
+            ishtml = False
+            if type_ == 1:
+                htmlitem = f'<font color="#FF0000" size=5>{string}</font>'
+            elif type_ == 3:
+                htmlitem = (
                     f'<font color="#FB8C42" face="Droid Sans Fallback">{string}</font>'
                 )
-            elif type_ == "4":
-                html += f"<font color=black>{string}</font>"
-            elif type_ == "5":
-                html += f'<font color="#04A6B5">{string}</font>'
+            elif type_ == 4:
+                htmlitem = f"<font color=black>{string}</font>"
+            elif type_ == 5:
+                htmlitem = f'<font color="#04A6B5">{string}</font>'
+            elif type_ == 6:
+                htmlitem = f'<font color="#9900CC">{string}</font>'
+            elif type_ == 7:
+                htmlitem = f'<font color="#F27A04">{string}</font>'
             else:
-                html += item + "<br>"
-                print("unknown", item)
-            if string.endswith("<br>") == False:
-                html += "<br>"
+                if str(type_).startswith("2"):
+                    num = str(type_)[1:]
+                    if len(num):
+                        num += " "
+                    htmlitem = f'<font color="#0000FF">{num}{string}</font>'
+                elif str(type_).startswith("8"):
+                    num = str(type_)[1:]
+                    if len(num):
+                        num += " "
+                    htmlitem = f'<font color="#330099">{num}{string}</font>'
+                elif (
+                    str(type_).startswith("11")
+                    or str(type_).startswith("9")
+                    or str(type_).startswith("10")
+                    or str(type_).startswith("12")
+                ):
+                    if str(type_).startswith("11"):
+                        offset = 2
+                        color = "9933FF"
+                    elif str(type_).startswith("9"):
+                        offset = 1
+                        color = "046AA4"
+                    elif str(type_).startswith("10"):
+                        offset = 2
+                        color = "006699"
+                    elif str(type_).startswith("12"):
+                        offset = 2
+                        color = "F80AB8"
+                    num = str(type_)[offset:]
+                    if len(num):
+                        idx = -1
+                        for i in range(1, len(string)):
+                            if string[i - 1] == " " and (not string[i].isalpha()):
+                                idx = i
+                                break
+                        if idx != -1:
+                            string = string[:idx] + num + string[idx:]
+                    htmlitem = f'<font color="#{color}">{num}{string}</font>'
+                else:
+                    ishtml = True
+                    htmlitem = string
+                    # print(type_)
+                # html
+                # print(item)
+
+            if not ishtml:
+                htmlitem = htmlitem.replace("\r\n", "<br>")
+                if not htmlitem.endswith("<br>"):
+                    htmlitem += "<br>"
+            html += htmlitem
+        # print(html)
         return html
 
+    def get_mime_type_from_magic(self, magic_bytes):
+        if magic_bytes.startswith(b"OggS"):
+            return "audio/ogg"
+        elif magic_bytes.startswith(b"\x1A\x45\xDF\xA3"):  # EBML header (Matroska)
+            return "video/webm"
+        elif (
+            magic_bytes.startswith(b"\x52\x49\x46\x46") and magic_bytes[8:12] == b"WEBP"
+        ):
+            return "image/webp"
+        elif magic_bytes.startswith(b"\xFF\xD8\xFF"):
+            return "image/jpeg"
+        elif magic_bytes.startswith(b"\x89\x50\x4E\x47\x0D\x0A\x1A\x0A"):
+            return "image/png"
+        elif magic_bytes.startswith(b"GIF87a") or magic_bytes.startswith(b"GIF89a"):
+            return "image/gif"
+        elif magic_bytes.startswith(b"\x00\x00\x01\xBA") or magic_bytes.startswith(
+            b"\x00\x00\x01\xB3"
+        ):
+            return "video/mpeg"
+        elif magic_bytes.startswith(b"\x49\x44\x33") or magic_bytes.startswith(
+            b"\xFF\xFB"
+        ):
+            return "audio/mpeg"
+        else:
+            return "application/octet-stream"
+
+    def repairtarget(self, index, base, html_content):
+        import base64
+
+        src_pattern = r'src="([^"]+)"'
+        href_pattern = r'href="([^"]+)"'
+
+        src_matches = re.findall(src_pattern, html_content)
+        href_matches = re.findall(href_pattern, html_content)
+
+        for url in src_matches + href_matches:
+            oked = False
+            try:
+                try:
+                    with open(os.path.join(base, url), "rb") as f:
+                        file_content = f.read()
+
+                except:
+                    url1 = url.replace("/", "\\")
+                    if not url1.startswith("\\"):
+                        url1 = "\\" + url1
+                    try:
+                        file_content = index.mdd_lookup(url1)[0]
+                    except:
+                        func = url.split(r"://")[0]
+
+                        url1 = url.split(r"://")[1]
+                        url1 = url1.replace("/", "\\")
+
+                        if not url1.startswith("\\"):
+                            url1 = "\\" + url1
+                        file_content = index.mdd_lookup(url1)[0]
+                        if func == "sound":
+
+                            base64_content = base64.b64encode(file_content).decode(
+                                "utf-8"
+                            )
+                            import uuid
+
+                            uid = str(uuid.uuid4())
+                            # with open(uid+'.mp3','wb') as ff:
+                            #     ff.write(file_content)
+                            audio = f'<audio controls id="{uid}" style="display: none"><source src="data:{self.get_mime_type_from_magic(file_content)};base64,{base64_content}"></audio>'
+                            html_content = audio + html_content.replace(
+                                url,
+                                f"javascript:document.getElementById('{uid}').play()",
+                            )
+                            file_content = None
+                            oked = True
+
+                        else:
+                            print(url)
+            except:
+                file_content = None
+            if file_content:
+                base64_content = base64.b64encode(file_content).decode("utf-8")
+                html_content = html_content.replace(
+                    url, f"data:application/octet-stream;base64,{base64_content}"
+                )
+            elif not oked:
+                print(url)
+        return html_content
+
     def search(self, word):
-        results = []
+        allres = []
         for index, f in self.builders:
-            if f.lower().endswith(".mdx"):
-                try:
-                    keys = self.querycomplex(word, index.get_mdx_keys)
-                    for k in keys:
-                        results.append(self.parseashtml(index.mdx_lookup(k)[0]))
-                except:
-                    pass
-            elif f.lower().endswith(".mdd"):
-                try:
-                    keys = self.querycomplex(word, index.get_mdd_keys)
+            results = []
+            # print(f)
+            try:
+                keys = self.querycomplex(word, index.get_mdx_keys)
+                # print(keys)
+                for k in keys:
+                    content = index.mdx_lookup(k)[0]
 
-                    for k in keys:
-                        results.append(self.parseashtml(index.mdd_lookup(k)[0]))
-                except:
-                    pass
-        if len(results) == 0:
+                    match = re.match("@@@LINK=(.*)\r\n", content)
+                    if match:
+                        match = match.groups()[0]
+                        content = index.mdx_lookup(match)[0]
+                    results.append(self.parseashtml(content))
+            except:
+                from traceback import print_exc
+
+                print_exc()
+            if len(results) == 0:
+                continue
+
+            for i in range(len(results)):
+                results[i] = self.repairtarget(index, os.path.dirname(f), results[i])
+            # <img src="/rjx0849.png" width="1080px"><br><center> <a href="entry://rjx0848">
+            # /rjx0849.png->mddkey \\rjx0849.png entry://rjx0848->跳转到mdxkey rjx0849
+            # 太麻烦，不搞了。
+            allres.append((f, "".join(results)))
+        if len(allres) == 0:
             return
-        style = """
+        commonstyle = """
+<script>
+function onclickbtn_mdict_internal(_id) {
+    tabPanes = document.querySelectorAll('.tab-widget_mdict_internal .tab-pane_mdict_internal');
+    tabButtons = document.querySelectorAll('.tab-widget_mdict_internal .tab-button_mdict_internal');
+        for (i = 0; i < tabButtons.length; i++)
+            tabButtons[i].classList.remove('active');
+        for (i = 0; i < tabPanes.length; i++)
+            tabPanes[i].classList.remove('active');
+
+        document.getElementById(_id).classList.add('active');
+
+        tabId = document.getElementById(_id).getAttribute('data-tab');
+        tabPane = document.getElementById(tabId);
+        tabPane.classList.add('active');
+    }
+</script>
 <style>
-    .mdx_btn {
-    font-size: 0.7em;
-    line-height: normal;
-    margin-left: 8px;
-    margin-right: 8px;
+.centerdiv_mdict_internal {
+    display: flex;
+    justify-content: center;
+}
+.tab-widget_mdict_internal .tab-button_mdict_internals_mdict_internal {
+    display: flex;
+}
 
-    padding: 4px 10px 4px 10px;
-    border-radius: 6px;
-    background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#ececec), to(#d6d6d6));
-    background-image: -webkit-linear-gradient(top, #ececec, #d6d6d6);
-    text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.25);
-    border-color: #C43C35 #C43C35 #882A25;
-    border-color: rgba(0, 0, 0, 0.1) rgba(0, 0, 0, 0.1) rgba(0, 0, 0, 0.25);
-    }
-    .mdx_block_title{
-    font-size: 1em;
-    font-weight: bold;
-    border-bottom:#0c0c0c;
-    background: #d6d6d6;
-    background-image: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#ececec), to(#d6d6d6));
-    background-image: -webkit-linear-gradient(top, #ececec, #d6d6d6);
-    filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#00ececec', endColorstr='#00d6d6d6',GradientType=0 );
+.tab-widget_mdict_internal .tab-button_mdict_internal {
+    padding: 10px 20px;
+    background-color: #ccc;
+    border: none;
+    cursor: pointer;
+    display: inline-block;
+}
 
-    }
-    .mdx_dict_block_expand{
-    display: block
-    }
-    .mdx_dict_block_collapse{
-    display: none
-    }
-    .tabs {font-family:Verdana,Arial,sans-serif;font-size:14px;line-height:29px;position: relative; padding: 1px; zoom: 1; }
-    .tabs ul {font-weight:bold;display:block;border-bottom:1px solid #AAAAAA;height:30px; padding:0; margin:0; padding-left:30px;}
-    .tabs ul li {-moz-border-radius-topleft:4px; -moz-border-radius-topright:4px;height:29px;border-bottom:0 none !important;float:left;list-style:none;margin:0 0.2em 1px 0;padding:0;position:relative;top:1px;white-space:nowrap;color:#555555;font-weight:blod;}
-    .tabs ul li.tabs_active {margin-bottom:0;padding-bottom:1px; border:1px solid #aaa;color:#333;background-color:#fff;}
-    .tabs ul li.tabs_active_title {float:left;padding:0px 8px;text-decoration:none;color:#777;}
-    .tabs ul li.tabs_hover{margin-bottom:0;padding-bottom:1px;border:1px solid #999;}
-    .tabs ul li a {float:left;padding:0.25em 1em;text-decoration:none;cursor:pointer;color:#777;}
-    .tabs ul li.tabs_active a {color:#333;}
-    .tabs ul li.tabs_active a {color:#555555;}
-    .ui-tabs .ui-tabs-panel {border-width:0;display:block;}
+.tab-widget_mdict_internal .tab-button_mdict_internal.active {
+    background-color: #f0f0f0;
+}
+
+.tab-widget_mdict_internal .tab-content_mdict_internal .tab-pane_mdict_internal {
+    display: none;
+}
+
+.tab-widget_mdict_internal .tab-content_mdict_internal .tab-pane_mdict_internal.active {
+    display: block;
+}
 </style>
 """
 
-        return style + "".join(results)
+        btns = []
+        contents = []
+        idx = 0
+        for f, res in allres:
+            idx += 1
+            ff = os.path.basename(f)[:-4]
+            btns.append(
+                f"""<button type="button" onclick="onclickbtn_mdict_internal('buttonid_mdict_internal{idx}')" id="buttonid_mdict_internal{idx}" class="tab-button_mdict_internal" data-tab="tab_mdict_internal{idx}">{ff}</button>"""
+            )
+            contents.append(
+                f"""<div id="tab_mdict_internal{idx}" class="tab-pane_mdict_internal">{res}</div>"""
+            )
+        res = f"""
+    {commonstyle}
+<div class="tab-widget_mdict_internal">
+    <div class="centerdiv_mdict_internal">
+        <div class="tab-buttons_mdict_internal" id="tab_buttons_mdict_internal">
+        {''.join(btns)}
+        </div>
+    </div>
+    <div class="centerdiv_mdict_internal">
+        <div class="tab-content_mdict_internal" id="tab_contents_mdict_internal">
+            {''.join(contents)}
+        </div>
+    </div>
+</div>
+<script>
+if(document.querySelectorAll('.tab-widget_mdict_internal .tab-button_mdict_internal').length)
+document.querySelectorAll('.tab-widget_mdict_internal .tab-button_mdict_internal')[0].click()
+</script>
+"""
+        return res

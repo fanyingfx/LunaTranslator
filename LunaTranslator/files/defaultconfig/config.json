@@ -54,7 +54,6 @@
         "changecharset": false,
         "changecharset_charset": 2
     },
-    "ffmpeg": "",
     "requestinterval": 1,
     "keepontop": true,
     "buttonsize": 20,
@@ -69,7 +68,6 @@
         "arabic_reshaper": false
     },
     "uselongtermcache": false,
-    "hist_split": false,
     "fixedheight": false,
     "showintab": true,
     "remove_useless_hook": false,
@@ -180,11 +178,23 @@
     "ankiconnect": {
         "port": 8765,
         "DeckName": "lunadeck",
-        "ModelName3": "lunamodel3",
+        "ModelName5": "lunamodel5",
         "allowDuplicate": true,
         "autoUpdateModel": true,
         "ocrcroped": false,
-        "autoruntts": false
+        "autoruntts": false,
+        "autoruntts2": false,
+        "simulate_key": {
+            "1": {
+                "use": false,
+                "keycode": 120
+            },
+            "2": {
+                "use": false,
+                "keycode": 120
+            }
+        },
+        "autocrop": false
     },
     "ankiwindow": [
         100,
@@ -212,7 +222,7 @@
     "accept_use_unicode_end": 65535,
     "premtsimiuse": false,
     "buttoncolor": "#001f9f",
-    "premtsimi": 5,
+    "premtsimi2": 100,
     "ocrrangecolor": "#000000",
     "ocrrangewidth": 2,
     "useproxy": true,
@@ -354,7 +364,7 @@
             },
             "grabwindow": {
                 "use": false,
-                "tip": "前景窗口截屏",
+                "tip": "窗口截图",
                 "icon": "fa.camera"
             },
             "resize": {
@@ -599,7 +609,7 @@
             },
             "_21": {
                 "use": false,
-                "name": "前景窗口截屏",
+                "name": "窗口截图",
                 "keystring": ""
             },
             "_22": {
@@ -760,6 +770,7 @@
         "xiaoxueguan": {
             "args": {
                 "path": "",
+                "distance": 0,
                 "priority": 100
             },
             "argstype": {
@@ -768,6 +779,13 @@
                     "name": "路径",
                     "dir": false,
                     "filter": "*.db"
+                },
+                "distance": {
+                    "type": "intspin",
+                    "name": "模糊匹配_编辑距离",
+                    "min": 0,
+                    "max": 100,
+                    "step": 1
                 },
                 "priority": {
                     "type": "intspin",
@@ -785,6 +803,7 @@
             "name": "EDICT",
             "args": {
                 "path": "",
+                "distance": 0,
                 "priority": 100
             },
             "argstype": {
@@ -793,6 +812,13 @@
                     "name": "路径",
                     "dir": false,
                     "filter": "*.db"
+                },
+                "distance": {
+                    "type": "intspin",
+                    "name": "模糊匹配_编辑距离",
+                    "min": 0,
+                    "max": 100,
+                    "step": 1
                 },
                 "priority": {
                     "type": "intspin",
@@ -808,6 +834,7 @@
             "name": "EDICT2",
             "args": {
                 "path": "",
+                "distance": 0,
                 "priority": 100
             },
             "argstype": {
@@ -815,6 +842,13 @@
                     "type": "file",
                     "name": "路径",
                     "dir": false
+                },
+                "distance": {
+                    "type": "intspin",
+                    "name": "模糊匹配_编辑距离",
+                    "min": 0,
+                    "max": 100,
+                    "step": 1
                 },
                 "priority": {
                     "type": "intspin",
@@ -830,6 +864,7 @@
             "name": "灵格斯词典",
             "args": {
                 "path": "",
+                "distance": 0,
                 "priority": 100
             },
             "argstype": {
@@ -837,6 +872,13 @@
                     "type": "file",
                     "name": "路径",
                     "dir": true
+                },
+                "distance": {
+                    "type": "intspin",
+                    "name": "模糊匹配_编辑距离",
+                    "min": 0,
+                    "max": 100,
+                    "step": 1
                 },
                 "priority": {
                     "type": "intspin",
@@ -879,6 +921,22 @@
                 }
             }
         },
+        "jisho": {
+            "use": false,
+            "name": "jisho",
+            "args": {
+                "priority": 100
+            },
+            "argstype": {
+                "priority": {
+                    "type": "intspin",
+                    "name": "优先级",
+                    "min": 0,
+                    "max": 10000,
+                    "step": 1
+                }
+            }
+        },
         "weblio": {
             "use": false,
             "name": "weblio",
@@ -900,6 +958,7 @@
             "name": "yomichan termbank",
             "args": {
                 "path": "",
+                "distance": 0,
                 "priority": 100
             },
             "argstype": {
@@ -907,6 +966,13 @@
                     "type": "file",
                     "name": "路径",
                     "dir": true
+                },
+                "distance": {
+                    "type": "intspin",
+                    "name": "模糊匹配_编辑距离",
+                    "min": 0,
+                    "max": 100,
+                    "step": 1
                 },
                 "priority": {
                     "type": "intspin",
@@ -938,7 +1004,7 @@
             "name": "mdict",
             "args": {
                 "path": "",
-                "ambiguity": 0,
+                "distance": 0,
                 "priority": 100
             },
             "argstype": {
@@ -947,13 +1013,13 @@
                     "name": "路径",
                     "dir": false,
                     "multi": true,
-                    "filter": "*.mdx|*.mdd"
+                    "filter": "*.mdx"
                 },
-                "ambiguity": {
+                "distance": {
                     "type": "intspin",
-                    "name": "ambiguity",
+                    "name": "模糊匹配_编辑距离",
                     "min": 0,
-                    "max": 3,
+                    "max": 100,
                     "step": 1
                 },
                 "priority": {

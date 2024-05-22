@@ -29,7 +29,8 @@ class linggesi(cishubase):
             pass
 
     def search(self, word):
-
+        if not self.sql:
+            return
         mp = {}
         for sql in [self.sql, self.sql2]:
             x = sql.execute(
@@ -41,7 +42,8 @@ class linggesi(cishubase):
             for w, xx in exp:
 
                 d = winsharedutils.distance(w, word)
-                mp[w] = [xx, d]
+                if d <= self.config["distance"]:
+                    mp[w] = [xx, d]
 
         x = sorted(list(mp.keys()), key=lambda x: mp[x][1])[:10]
         save = [w + "<br>" + mp[w][0] for w in x]

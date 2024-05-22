@@ -36,7 +36,7 @@ def getversion(self):
             )
         )
     )
-    if _version is not None and versionstring < _version:
+    if _version is not None and version < tuple(int(_) for _ in _version[1:].split(".")):
         if globalconfig["autoupdate"]:
             updatemethod(_version, self.progresssignal.emit)
 
@@ -129,6 +129,10 @@ def setTab_aboutlazy(self):
         [
             "问题反馈",
             (makehtml("https://github.com/HIllya51/LunaTranslator/issues"), 3, "link"),
+        ],
+        [
+            "使用说明",
+            (makehtml("https://hillya51.github.io/LunaTranslator_tutorial/#/zh/"), 3, "link"),
         ],
     ]
     if globalconfig["languageuse"] == 0:

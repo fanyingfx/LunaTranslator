@@ -273,8 +273,12 @@ class autoinitdialog(QDialog):
                 lineW.button(QDialogButtonBox.Ok).setText(_TR("确定"))
                 lineW.button(QDialogButtonBox.Cancel).setText(_TR("取消"))
             elif line["type"] == "lineedit":
-                lineW = QLineEdit(dd[key])
-                regist.append([dd, key, lineW.text])
+                try:
+                    lineW = QLineEdit(dd[key])
+                    regist.append([dd, key, lineW.text])
+                except:
+                    # 被废弃的参数若为int型但失去argstype注释会崩溃，直接continue;
+                    continue
             elif line["type"] == "file":
                 e = QLineEdit(dd[key])
                 regist.append([dd, key, e.text])
@@ -285,7 +289,7 @@ class autoinitdialog(QDialog):
                         line.get("multi", False),
                         e,
                         line["dir"],
-                        "" if line["dir"] else line["filter"],
+                        "" if line["dir"] else line.get("filter", None),
                     )
                 )
                 lineW = QHBoxLayout()
@@ -419,10 +423,6 @@ class postconfigdialog_(QDialog):
         lb.setText(_TR(key))
         formLayout.addWidget(lb)
 
-        # lines=QTextEdit(self)
-        # lines.setPlainText('\n'.join(configdict[key]))
-        # lines.textChanged.connect(lambda   :configdict.__setitem__(key,lines.toPlainText().split('\n')))
-        # formLayout.addWidget(lines)
         model = QStandardItemModel(len(configdict[key]), 1, self)
         row = 0
 

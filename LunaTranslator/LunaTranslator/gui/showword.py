@@ -8,17 +8,19 @@ from PyQt5.QtWidgets import (
     QFormLayout,
     QSizePolicy,
     QPushButton,
-    QTextEdit,
     QTabWidget,
     QFileDialog,
     QTabBar,
     QLabel,
 )
+from myutils.hwnd import grabwindow
+
+from urllib.parse import quote
 from PyQt5.QtGui import QPixmap, QImage
 from traceback import print_exc
-import requests, json, subprocess, time
-from PyQt5.QtCore import pyqtSignal, Qt, QUrl
-import qtawesome, functools, os, base64
+import requests, json, time
+from PyQt5.QtCore import pyqtSignal, Qt
+import qtawesome, functools, os, base64, winsharedutils
 import gobject, uuid, windows, platform
 from myutils.config import globalconfig, _TR, static_data
 import myutils.ankiconnect as anki
@@ -33,65 +35,50 @@ from gui.usefulwidget import (
     getcolorbutton,
     tabadd_lazy,
 )
-from myutils.subproc import subproc_w, autoproc
-
+from myutils.subproc import subproc_w
 from myutils.wrapper import threader
 from myutils.ocrutil import imageCut, ocr_run
 from gui.rangeselect import rangeselct_function
 
 
-class ffmpeg_virtual_audio_capturer:
-    def __init__(self):
-        os.makedirs("./cache/tts", exist_ok=True)
-        self.file = os.path.abspath(
-            os.path.join("./cache/tts", str(time.time()) + ".mp3")
-        )
-        try:
-            self.engine = subprocess.Popen(
-                os.path.join(
-                    globalconfig["ffmpeg"],
-                    f'ffmpeg.exe -f dshow -i audio="virtual-audio-capturer" "{self.file}"',
-                ),
-                stdin=subprocess.PIPE,
-            )
-        except:
-            print_exc()
-
-    def end(self):
-        try:
-            self.engine.stdin.write(b"q")
-            self.engine.stdin.flush()
-        except:
-            pass
-
-
 class loopbackrecorder:
     def __init__(self):
-        os.makedirs("./cache/tts", exist_ok=True)
+        os.makedirs("cache/temp", exist_ok=True)
         self.file = os.path.abspath(
-            os.path.join("./cache/tts", str(time.time()) + ".wav")
+            os.path.join("cache/temp", str(time.time()) + ".wav")
         )
         try:
-            if platform.architecture()[0] == "64bit":
-                _6432 = "64"
-            elif platform.architecture()[0] == "32bit":
-                _6432 = "32"
             self.waitsignal = str(time.time())
-            self.engine = autoproc(
-                subproc_w(
-                    './files/plugins/shareddllproxy{}.exe recordaudio "{}"  "{}"'.format(
-                        _6432, self.file, self.waitsignal
-                    ),
-                    name="recordaudio",
-                )
+            self.engine = subproc_w(
+                './files/plugins/loopbackaudio.exe "{}"  "{}"'.format(
+                    self.file, self.waitsignal
+                ),
             )
         except:
             print_exc()
 
-    def end(self):
+    @threader
+    def end(self, callback):
         windows.SetEvent(
             windows.AutoHandle(windows.CreateEvent(False, False, self.waitsignal))
         )
+        self.engine.wait()
+        filewav = self.file
+        if os.path.exists(filewav) == False:
+            callback("")
+            return
+        filemp3 = filewav.replace(".wav", ".mp3")
+        subproc_w(
+            './files/plugins/shareddllproxy32.exe mainmp3 "{}"  "{}"'.format(
+                filewav, filemp3
+            ),
+            run=True,
+        )
+        if os.path.exists(filemp3):
+            os.remove(filewav)
+            callback(filemp3)
+        else:
+            callback(filewav)
 
 
 class statusbutton(QPushButton):
@@ -122,13 +109,32 @@ class statusbutton(QPushButton):
         self.seticon()
 
 
+class autoremovelineedit(QLineEdit):
+    def check(self):
+        last = self.text()
+        if os.path.exists(last) and os.path.isfile(last):
+            norm_dir1 = os.path.normpath(last)
+            norm_dir2 = os.path.normpath(os.path.abspath("./cache"))
+            print(norm_dir1, norm_dir2)
+            if norm_dir1.startswith(norm_dir2):
+                os.remove(last)
+
+    def setText(self, s):
+        self.check()
+        super().setText(s)
+
+    def clear(self):
+        self.check()
+        super().clear()
+
+
 class AnkiWindow(QWidget):
     __ocrsettext = pyqtSignal(str)
     refreshhtml = pyqtSignal()
 
     def callbacktts(self, edit, data):
-        fname = "./cache/tts/" + str(uuid.uuid4()) + ".mp3"
-        os.makedirs("./cache/tts", exist_ok=True)
+        fname = "cache/temp/" + str(uuid.uuid4()) + ".mp3"
+        os.makedirs("cache/temp", exist_ok=True)
         with open(fname, "wb") as ff:
             ff.write(data)
         edit.setText(os.path.abspath(fname))
@@ -155,10 +161,9 @@ class AnkiWindow(QWidget):
             img = imageCut(
                 0, rect[0][0], rect[0][1], rect[1][0], rect[1][1], False, True
             )
-            fname = "./cache/ocr/cropforanki.png"
-            os.makedirs("./cache/ocr", exist_ok=True)
+            fname = "cache/temp/" + str(uuid.uuid4()) + ".png"
+            os.makedirs("cache/temp", exist_ok=True)
             img.save(fname)
-            self.editpath.setText("")
             self.editpath.setText(os.path.abspath(fname))
             if globalconfig["ankiconnect"]["ocrcroped"]:
                 self.asyncocr(img)
@@ -282,13 +287,9 @@ class AnkiWindow(QWidget):
 
     def loadfileds(self):
         word = self.currentword
-        explain = json.dumps(
-            json.dumps(
-                gobject.baseobject.searchwordW.generate_explains(), ensure_ascii=False
-            ),
-            ensure_ascii=False,
-        )
-        remarks = self.remarks.toHtml()
+        explain = quote(json.dumps(gobject.baseobject.searchwordW.generate_explains()))
+
+        remarks = self.remarks.toPlainText()
         example = self.example.toPlainText()
         ruby = self.ruby
         fields = {
@@ -369,7 +370,7 @@ class AnkiWindow(QWidget):
             _TR("DeckName"), getlineedit(globalconfig["ankiconnect"], "DeckName")
         )
         layout.addRow(
-            _TR("ModelName"), getlineedit(globalconfig["ankiconnect"], "ModelName3")
+            _TR("ModelName"), getlineedit(globalconfig["ankiconnect"], "ModelName5")
         )
 
         layout.addRow(
@@ -386,53 +387,56 @@ class AnkiWindow(QWidget):
         )
 
         layout.addRow(
-            _TR("自动TTS"),
+            _TR("自动TTS_1"),
             getsimpleswitch(globalconfig["ankiconnect"], "autoruntts"),
         )
-
-        layout.addWidget(QLabel())
-        layout.addRow(_TR("录音"), QLabel())
-        lb = QLabel()
-        lb.setOpenExternalLinks(True)
-        lb.setText(
-            '<a href="https://github.com/HIllya51/RESOURCES/releases/download/softwares/virtual-audio.zip">virtual-audio-capturer</a>'
+        layout.addRow(
+            _TR("自动TTS_2"),
+            getsimpleswitch(globalconfig["ankiconnect"], "autoruntts2"),
         )
-        layout.addRow(_TR("安装录音驱动"), lb)
-        ffmpegpath = getlineedit(globalconfig, "ffmpeg", readonly=True)
-
-        def selectpath():
-            f = QFileDialog.getExistingDirectory()
-            if f != "":
-                ffmpegpath.setText(f)
+        layout.addRow(
+            _TR("自动截图"),
+            getsimpleswitch(globalconfig["ankiconnect"], "autocrop"),
+        )
 
         layout.addRow(
-            _TR("ffmpeg"),
-            getboxlayout(
-                [
-                    ffmpegpath,
-                    getcolorbutton(
-                        "",
-                        "",
-                        selectpath,
-                        icon="fa.gear",
-                        constcolor="#FF69B4",
-                    ),
-                ],
-                makewidget=True,
+            _TR("录音时模拟按键_1"),
+            getsimpleswitch(globalconfig["ankiconnect"]["simulate_key"]["1"], "use"),
+        )
+        layout.addRow(
+            _TR("录音时模拟按键_1_VirtualKeyCode"),
+            getspinbox(
+                0, 9999, globalconfig["ankiconnect"]["simulate_key"]["1"], "keycode"
             ),
         )
-
+        layout.addRow(
+            _TR("录音时模拟按键_2"),
+            getsimpleswitch(globalconfig["ankiconnect"]["simulate_key"]["2"], "use"),
+        )
+        layout.addRow(
+            _TR("录音时模拟按键_2_VirtualKeyCode"),
+            getspinbox(
+                0, 9999, globalconfig["ankiconnect"]["simulate_key"]["2"], "keycode"
+            ),
+        )
         return wid
 
-    def startorendrecord(self, target: QLineEdit, idx):
+    @threader
+    def simulate_key(self, i):
+        if not globalconfig["ankiconnect"]["simulate_key"][i]["use"]:
+            return
+        windows.SetForegroundWindow(gobject.baseobject.textsource.hwnd)
+        time.sleep(0.1)
+        key = globalconfig["ankiconnect"]["simulate_key"][i]["keycode"]
+        windows.keybd_event(key, 0, 0, 0)
+        windows.keybd_event(key, 0, windows.KEYEVENTF_KEYUP, 0)
+
+    def startorendrecord(self, i, target: QLineEdit, idx):
         if idx == 1:
-            if len(globalconfig["ffmpeg"]) and os.path.exists(globalconfig["ffmpeg"]):
-                self.recorder = ffmpeg_virtual_audio_capturer()
-            else:
-                self.recorder = loopbackrecorder()
+            self.recorder = loopbackrecorder()
+            self.simulate_key(i)
         else:
-            self.recorder.end()
-            target.setText(self.recorder.file)
+            self.recorder.end(callback=target.setText)
 
     def createaddtab(self):
         layout = QVBoxLayout()
@@ -445,23 +449,23 @@ class AnkiWindow(QWidget):
         cropbutton = QPushButton(qtawesome.icon("fa.crop"), "")
         cropbutton.clicked.connect(self.crop)
 
-        self.audiopath = QLineEdit()
+        self.audiopath = autoremovelineedit()
         self.audiopath.setReadOnly(True)
-        self.audiopath_sentence = QLineEdit()
+        self.audiopath_sentence = autoremovelineedit()
         self.audiopath_sentence.setReadOnly(True)
-        self.editpath = QLineEdit()
+        self.editpath = autoremovelineedit()
         self.editpath.setReadOnly(True)
         self.viewimagelabel = QLabel()
         self.editpath.textChanged.connect(self.wrappedpixmap)
         self.example = QPlainTextEdit()
-        self.remarks = QTextEdit()
+        self.remarks = QPlainTextEdit()
         recordbtn1 = statusbutton(icons=["fa.microphone", "fa.stop"], colors=[""])
         recordbtn1.statuschanged1.connect(
-            functools.partial(self.startorendrecord, self.audiopath)
+            functools.partial(self.startorendrecord, "1", self.audiopath)
         )
         recordbtn2 = statusbutton(icons=["fa.microphone", "fa.stop"], colors=[""])
         recordbtn2.statuschanged1.connect(
-            functools.partial(self.startorendrecord, self.audiopath_sentence)
+            functools.partial(self.startorendrecord, "2", self.audiopath_sentence)
         )
         layout.addLayout(
             getboxlayout(
@@ -554,9 +558,10 @@ class AnkiWindow(QWidget):
         return wid
 
     def wrappedpixmap(self, src):
-        if not src:
-            return
-        pix = QPixmap.fromImage(QImage(src))
+        if os.path.exists(src) == False:
+            pix = QPixmap()
+        else:
+            pix = QPixmap.fromImage(QImage(src))
         rate = self.devicePixelRatioF()
         pix.setDevicePixelRatio(rate)
         if (
@@ -575,12 +580,11 @@ class AnkiWindow(QWidget):
     def reset(self, text):
         self.currentword = text
         if text and len(text):
-            self.ruby = json.dumps(
+            self.ruby = quote(
                 json.dumps(
                     gobject.baseobject.translation_ui.parsehira(text),
                     ensure_ascii=False,
-                ),
-                ensure_ascii=False,
+                )
             )
         else:
             self.ruby = ""
@@ -620,7 +624,7 @@ class AnkiWindow(QWidget):
         autoUpdateModel = globalconfig["ankiconnect"]["autoUpdateModel"]
         allowDuplicate = globalconfig["ankiconnect"]["allowDuplicate"]
         anki.global_port = globalconfig["ankiconnect"]["port"]
-        ModelName = globalconfig["ankiconnect"]["ModelName2"]
+        ModelName = globalconfig["ankiconnect"]["ModelName5"]
         DeckName = globalconfig["ankiconnect"]["DeckName"]
         model_htmlfront, model_htmlback, model_css = self.tryloadankitemplates()
         try:
@@ -731,7 +735,7 @@ class selectviewer(QWidget):
 
 class searchwordW(closeashidewindow):
     getnewsentencesignal = pyqtSignal(str, bool)
-    showtabsignal = pyqtSignal(str, str)
+    showtabsignal = pyqtSignal(float, str, str)
 
     def __init__(self, parent):
         super(searchwordW, self).__init__(parent, globalconfig, "sw_geo")
@@ -741,7 +745,9 @@ class searchwordW(closeashidewindow):
         self.getnewsentencesignal.connect(self.getnewsentence)
         self.setWindowTitle(_TR("查词"))
 
-    def showresfun(self, k, res):
+    def showresfun(self, timestamp, k, res):
+        if self.current != timestamp:
+            return
         self.cache_results[k] = res
 
         thisp = globalconfig["cishu"][k]["args"]["priority"]
@@ -831,18 +837,27 @@ class searchwordW(closeashidewindow):
         return res
 
     def getnewsentence(self, sentence, append):
+        sentence = sentence.strip()
         self.showNormal()
         if append:
             sentence = self.searchtext.text() + sentence
         self.searchtext.setText(sentence)
 
-        self.ankiwindow.example.setPlainText(gobject.baseobject.currenttext)
         self.search(sentence)
+
+        self.ankiwindow.example.setPlainText(gobject.baseobject.currenttext)
         if globalconfig["ankiconnect"]["autoruntts"]:
             self.ankiwindow.langdu()
+        if globalconfig["ankiconnect"]["autoruntts2"]:
             self.ankiwindow.langdu2()
 
+        if globalconfig["ankiconnect"]["autocrop"]:
+            grabwindow(self.ankiwindow.editpath.setText)
+
     def search(self, sentence):
+        current = time.time()
+        self.current = current
+        sentence = sentence.strip()
         if sentence == "":
             return
         self.ankiwindow.reset(sentence)
@@ -852,5 +867,6 @@ class searchwordW(closeashidewindow):
         self.textOutput.clear()
         self.cache_results.clear()
         for k, cishu in gobject.baseobject.cishus.items():
-            cishu.callback = functools.partial(self.showtabsignal.emit, k)
-            cishu.safesearch(sentence)
+            cishu.safesearch(
+                sentence, functools.partial(self.showtabsignal.emit, current, k)
+            )

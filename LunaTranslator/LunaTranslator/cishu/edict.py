@@ -15,7 +15,8 @@ class edict(cishubase):
             pass
 
     def search(self, word):
-
+        if not self.sql:
+            return
         x = self.sql.execute(
             "select text, entry_id from surface where  text like ?",
             ("%{}%".format(word),),
@@ -25,7 +26,8 @@ class edict(cishubase):
         dis = []
         for w, xx in exp:
             d = winsharedutils.distance(w, word)
-            dis.append(d)
+            if d <= self.config["distance"]:
+                dis.append(d)
         save = []
         srt = argsort(dis)
         for ii in srt:

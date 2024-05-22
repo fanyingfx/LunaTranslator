@@ -16,6 +16,8 @@ from ctypes import (
     create_string_buffer,
     c_size_t,
     windll,
+    c_float,
+    c_double,
     c_char,
 )
 from ctypes.wintypes import WORD, HANDLE, HWND, LONG, DWORD
@@ -61,6 +63,9 @@ _SAPI_Speak.restype = c_bool
 _levenshtein_distance = utilsdll.levenshtein_distance
 _levenshtein_distance.argtypes = c_uint, c_wchar_p, c_uint, c_wchar_p
 _levenshtein_distance.restype = c_uint  # 实际上应该都是size_t，但size_t 32位64位宽度不同，都用32位就行了，用int64会内存越界
+levenshtein_ratio = utilsdll.levenshtein_ratio
+levenshtein_ratio.argtypes = c_uint, c_wchar_p, c_uint, c_wchar_p
+levenshtein_ratio.restype = c_double
 
 _mecab_init = utilsdll.mecab_init
 _mecab_init.argtypes = c_char_p, c_wchar_p
@@ -121,8 +126,12 @@ def SAPI_Speak(content, v, voiceid, rate, volume):
     return data
 
 
-def distance(s1, s2):
+def distance(s1, s2):  # 词典更适合用编辑距离，因为就一两个字符，相似度会很小，预翻译适合用相似度
     return _levenshtein_distance(len(s1), s1, len(s2), s2)
+
+
+def distance_ratio(s1, s2):
+    return levenshtein_ratio(len(s1), s1, len(s2), s2)
 
 
 class mecabwrap:
@@ -186,7 +195,10 @@ html_release.argtypes = (c_void_p,)
 html_get_current_url = utilsdll.html_get_current_url
 html_get_current_url.argtypes = c_void_p, c_wchar_p
 html_set_html = utilsdll.html_set_html
-html_set_html.argtypes = c_void_p, c_wchar_p,
+html_set_html.argtypes = (
+    c_void_p,
+    c_wchar_p,
+)
 
 
 class HTMLBrowser:
@@ -333,3 +345,17 @@ startmaglistener = utilsdll.startmaglistener
 startmaglistener.restype = HANDLE
 endmaglistener = utilsdll.endmaglistener
 endmaglistener.argtypes = (HANDLE,)
+
+PlayAudioInMem = utilsdll.PlayAudioInMem
+PlayAudioInMem.argtypes = (
+    c_void_p,
+    c_size_t,
+    c_float,
+    c_void_p,
+    c_void_p,
+    POINTER(c_float),
+)
+PlayAudioInMem.restype = c_int
+
+PlayAudioInMem_Stop = utilsdll.PlayAudioInMem_Stop
+PlayAudioInMem_Stop.argtypes = c_void_p, c_void_p
