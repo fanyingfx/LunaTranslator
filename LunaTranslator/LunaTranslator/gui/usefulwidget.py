@@ -11,7 +11,10 @@ from PyQt5.QtWidgets import (
     QWidget,
     QLayout,
 )
+from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtWidgets import QKeySequenceEdit, QLabel
 from PyQt5.QtGui import QFontDatabase
+from PyQt5.QtGui import QKeySequence
 
 from webviewpy import (
     webview_native_handle_kind_t,
@@ -584,6 +587,9 @@ class WebivewWidget(QWidget):
     def setHtml(self, html):
         self.webview.set_html(html)
 
+    def parsehtml(self, html):
+        return html
+
 
 class mshtmlWidget(QWidget):
     on_load = pyqtSignal(str)
@@ -613,11 +619,40 @@ class mshtmlWidget(QWidget):
         self.browser.resize(0, 0, size[0], size[1])
 
     def setHtml(self, html):
-        html = """<html><head><meta http-equiv='x-ua-compatible' content='IE=edge'></head><body style=" font-family:'{}'">{}</body></html>""".format(
-            QFontDatabase.systemFont(QFontDatabase.GeneralFont).family(), html
-        )
         self.browser.set_html(html)
 
+    def parsehtml(self, html):
+        html = """<html><head><meta http-equiv='x-ua-compatible' content='IE=edge' charset="utf-8"></head><body style=" font-family:'{}'">{}</body></html>""".format(
+            QFontDatabase.systemFont(QFontDatabase.GeneralFont).family(), html
+        )
+        return html
+
+
+class CustomKeySequenceEdit(QKeySequenceEdit):
+    changeedvent = pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        super(CustomKeySequenceEdit, self).__init__(parent)
+
+    def keyPressEvent(self, QKeyEvent):
+        super(CustomKeySequenceEdit, self).keyPressEvent(QKeyEvent)
+        value = self.keySequence()
+        if len(value.toString()):
+            self.clearFocus()
+        self.changeedvent.emit(value.toString().replace("Meta", "Win"))
+        self.setKeySequence(QKeySequence(value))
+
+
+def getsimplekeyseq(dic, key, callback=None):
+    key1 = CustomKeySequenceEdit(QKeySequence(dic[key]))
+
+    def __(_d, _k, cb, s):
+        _d[_k] = s
+        if cb:
+            cb()
+
+    key1.changeedvent.connect(functools.partial(__, dic, key, callback))
+    return key1
 
 class auto_select_webview(QWidget):
     on_load = pyqtSignal(str)
@@ -631,6 +666,7 @@ class auto_select_webview(QWidget):
         self.internal.navigate(url)
 
     def setHtml(self, html):
+        html = self.internal.parsehtml(html)
         self._maybecreate()
         self.clearcache()
         if len(html) < 1 * 1024 * 1024:  # 1mb
@@ -644,6 +680,9 @@ class auto_select_webview(QWidget):
                 ff.write(html)
             print("file://" + self.lastcachehtml.replace("\\", "/"))
             self.internal.navigate("file://" + self.lastcachehtml.replace("\\", "/"))
+
+    def sizeHint(self):
+        return QSize(256, 192)
 
     def clearcache(self):
         if self.lastcachehtml and os.path.exists(self.lastcachehtml):

@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import (
     QTabWidget,
     QFileDialog,
     QTabBar,
+    QSplitter,
     QLabel,
 )
 from myutils.hwnd import grabwindow
@@ -20,8 +21,9 @@ from PyQt5.QtGui import QPixmap, QImage
 from traceback import print_exc
 import requests, json, time
 from PyQt5.QtCore import pyqtSignal, Qt
-import qtawesome, functools, os, base64, winsharedutils
-import gobject, uuid, windows, platform
+import qtawesome, functools, os, base64
+import gobject, uuid, windows
+from myutils.utils import getimageformat, parsekeystringtomodvkcode, unsupportkey
 from myutils.config import globalconfig, _TR, static_data
 import myutils.ankiconnect as anki
 from gui.usefulwidget import (
@@ -32,6 +34,7 @@ from gui.usefulwidget import (
     getspinbox,
     getlineedit,
     getsimpleswitch,
+    getsimplekeyseq,
     getcolorbutton,
     tabadd_lazy,
 )
@@ -115,7 +118,6 @@ class autoremovelineedit(QLineEdit):
         if os.path.exists(last) and os.path.isfile(last):
             norm_dir1 = os.path.normpath(last)
             norm_dir2 = os.path.normpath(os.path.abspath("./cache"))
-            print(norm_dir1, norm_dir2)
             if norm_dir1.startswith(norm_dir2):
                 os.remove(last)
 
@@ -161,7 +163,7 @@ class AnkiWindow(QWidget):
             img = imageCut(
                 0, rect[0][0], rect[0][1], rect[1][0], rect[1][1], False, True
             )
-            fname = "cache/temp/" + str(uuid.uuid4()) + ".png"
+            fname = "cache/temp/" + str(uuid.uuid4()) + "." + getimageformat()
             os.makedirs("cache/temp", exist_ok=True)
             img.save(fname)
             self.editpath.setText(os.path.abspath(fname))
@@ -172,6 +174,7 @@ class AnkiWindow(QWidget):
 
     def __init__(self) -> None:
         super().__init__()
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setWindowTitle("Anki Connect")
         self.currentword = ""
         self.tabs = QTabWidget()
@@ -291,12 +294,24 @@ class AnkiWindow(QWidget):
 
         remarks = self.remarks.toPlainText()
         example = self.example.toPlainText()
+        if globalconfig["ankiconnect"]["boldword"]:
+            if self.example.hiras is None:
+                self.example.hiras = gobject.baseobject.translation_ui.parsehira(
+                    example
+                )
+            collect = []
+            for hira in self.example.hiras:
+                if hira["orig"] == word or hira.get("origorig", None) == word:
+                    collect.append(f'<b>{hira["orig"]}</b>')
+                else:
+                    collect.append(hira["orig"])
+            example = "".join(collect)
         ruby = self.ruby
         fields = {
             "word": word,
             "rubytext": ruby,
             "explain": explain,
-            "example_sentence": example,
+            "example_sentence": example.replace("\n", "<br>"),
             "remarks": remarks,
         }
         return fields
@@ -387,36 +402,50 @@ class AnkiWindow(QWidget):
         )
 
         layout.addRow(
-            _TR("自动TTS_1"),
+            _TR("自动TTS"),
             getsimpleswitch(globalconfig["ankiconnect"], "autoruntts"),
         )
         layout.addRow(
-            _TR("自动TTS_2"),
+            _TR("自动TTS_例句"),
             getsimpleswitch(globalconfig["ankiconnect"], "autoruntts2"),
         )
         layout.addRow(
             _TR("自动截图"),
             getsimpleswitch(globalconfig["ankiconnect"], "autocrop"),
         )
+        layout.addRow(
+            _TR("例句中加粗单词"),
+            getsimpleswitch(globalconfig["ankiconnect"], "boldword"),
+        )
 
         layout.addRow(
-            _TR("录音时模拟按键_1"),
-            getsimpleswitch(globalconfig["ankiconnect"]["simulate_key"]["1"], "use"),
-        )
-        layout.addRow(
-            _TR("录音时模拟按键_1_VirtualKeyCode"),
-            getspinbox(
-                0, 9999, globalconfig["ankiconnect"]["simulate_key"]["1"], "keycode"
+            _TR("录音时模拟按键"),
+            getboxlayout(
+                [
+                    getsimpleswitch(
+                        globalconfig["ankiconnect"]["simulate_key"]["1"], "use"
+                    ),
+                    getsimplekeyseq(
+                        globalconfig["ankiconnect"]["simulate_key"]["1"], "keystring"
+                    ),
+                ],
+                margin0=True,
+                makewidget=True,
             ),
         )
         layout.addRow(
-            _TR("录音时模拟按键_2"),
-            getsimpleswitch(globalconfig["ankiconnect"]["simulate_key"]["2"], "use"),
-        )
-        layout.addRow(
-            _TR("录音时模拟按键_2_VirtualKeyCode"),
-            getspinbox(
-                0, 9999, globalconfig["ankiconnect"]["simulate_key"]["2"], "keycode"
+            _TR("录音时模拟按键_例句"),
+            getboxlayout(
+                [
+                    getsimpleswitch(
+                        globalconfig["ankiconnect"]["simulate_key"]["2"], "use"
+                    ),
+                    getsimplekeyseq(
+                        globalconfig["ankiconnect"]["simulate_key"]["2"], "keystring"
+                    ),
+                ],
+                margin0=True,
+                makewidget=True,
             ),
         )
         return wid
@@ -427,9 +456,20 @@ class AnkiWindow(QWidget):
             return
         windows.SetForegroundWindow(gobject.baseobject.textsource.hwnd)
         time.sleep(0.1)
-        key = globalconfig["ankiconnect"]["simulate_key"][i]["keycode"]
-        windows.keybd_event(key, 0, 0, 0)
-        windows.keybd_event(key, 0, windows.KEYEVENTF_KEYUP, 0)
+        try:
+            modes, vkcode = parsekeystringtomodvkcode(
+                globalconfig["ankiconnect"]["simulate_key"][i]["keystring"], modes=True
+            )
+        except unsupportkey as e:
+            print("不支持的键")
+            return
+        for mode in modes:
+            windows.keybd_event(mode, 0, 0, 0)
+        windows.keybd_event(vkcode, 0, 0, 0)
+        time.sleep(0.1)
+        windows.keybd_event(vkcode, 0, windows.KEYEVENTF_KEYUP, 0)
+        for mode in modes:
+            windows.keybd_event(mode, 0, windows.KEYEVENTF_KEYUP, 0)
 
     def startorendrecord(self, i, target: QLineEdit, idx):
         if idx == 1:
@@ -458,6 +498,12 @@ class AnkiWindow(QWidget):
         self.viewimagelabel = QLabel()
         self.editpath.textChanged.connect(self.wrappedpixmap)
         self.example = QPlainTextEdit()
+        self.example.hiras = None
+
+        def __():
+            self.example.hiras = None
+
+        self.example.textChanged.connect(__)
         self.remarks = QPlainTextEdit()
         recordbtn1 = statusbutton(icons=["fa.microphone", "fa.stop"], colors=[""])
         recordbtn1.statuschanged1.connect(
@@ -798,18 +844,25 @@ class searchwordW(closeashidewindow):
         self.cache_results = {}
         self.hiding = True
 
+        self.spliter = QSplitter()
+
         tablayout = QVBoxLayout()
-        tablayout.addWidget(self.tab)
-        tablayout.addWidget(self.textOutput)
         tablayout.setContentsMargins(0, 0, 0, 0)
         tablayout.setSpacing(0)
-        self.vboxlayout.addLayout(tablayout)
+        tablayout.addWidget(self.tab)
+        tablayout.addWidget(self.textOutput)
+        w = QWidget()
+        w.setLayout(tablayout)
+        self.vboxlayout.addWidget(self.spliter)
         self.isfirstshowanki = True
+        self.spliter.setOrientation(Qt.Vertical)
+
+        self.spliter.addWidget(w)
 
     def onceaddankiwindow(self, idx):
         if idx == 1:
             if self.isfirstshowanki:
-                self.vboxlayout.addWidget(self.ankiwindow)
+                self.spliter.addWidget(self.ankiwindow)
             else:
                 self.ankiwindow.show()
         else:
@@ -852,7 +905,10 @@ class searchwordW(closeashidewindow):
             self.ankiwindow.langdu2()
 
         if globalconfig["ankiconnect"]["autocrop"]:
-            grabwindow(self.ankiwindow.editpath.setText)
+            grabwindow(
+                getimageformat(),
+                self.ankiwindow.editpath.setText,
+            )
 
     def search(self, sentence):
         current = time.time()

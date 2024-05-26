@@ -11,11 +11,13 @@
 
 
 .centerdiv img {
+    flex: 1;
     max-width: 100%;
     height: auto;
 }
 
 .example-div {
+    text-align: center;
     font-family: BIZ UDGothic;
     font-size: 24px;
     text-align: center;

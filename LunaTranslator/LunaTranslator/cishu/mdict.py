@@ -2493,6 +2493,7 @@ class mdict(cishubase):
 
         for url in src_matches + href_matches:
             oked = False
+            iscss = url.lower().endswith(".css")
             try:
                 try:
                     with open(os.path.join(base, url), "rb") as f:
@@ -2506,7 +2507,8 @@ class mdict(cishubase):
                         file_content = index.mdd_lookup(url1)[0]
                     except:
                         func = url.split(r"://")[0]
-
+                        if func == "entry":
+                            continue
                         url1 = url.split(r"://")[1]
                         url1 = url1.replace("/", "\\")
 
@@ -2530,16 +2532,20 @@ class mdict(cishubase):
                             )
                             file_content = None
                             oked = True
-
                         else:
                             print(url)
             except:
                 file_content = None
             if file_content:
                 base64_content = base64.b64encode(file_content).decode("utf-8")
-                html_content = html_content.replace(
-                    url, f"data:application/octet-stream;base64,{base64_content}"
-                )
+                if iscss:
+                    html_content = html_content.replace(
+                        url, f"data:text/css;base64,{base64_content}"
+                    )
+                else:
+                    html_content = html_content.replace(
+                        url, f"data:application/octet-stream;base64,{base64_content}"
+                    )
             elif not oked:
                 print(url)
         return html_content
@@ -2554,8 +2560,7 @@ class mdict(cishubase):
                 # print(keys)
                 for k in keys:
                     content = index.mdx_lookup(k)[0]
-
-                    match = re.match("@@@LINK=(.*)\r\n", content)
+                    match = re.match("@@@LINK=(.*)", content.strip())
                     if match:
                         match = match.groups()[0]
                         content = index.mdx_lookup(match)[0]
@@ -2643,7 +2648,7 @@ function onclickbtn_mdict_internal(_id) {
         {''.join(btns)}
         </div>
     </div>
-    <div class="centerdiv_mdict_internal">
+    <div>
         <div class="tab-content_mdict_internal" id="tab_contents_mdict_internal">
             {''.join(contents)}
         </div>

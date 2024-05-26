@@ -1,4 +1,4 @@
-from PyQt5.QtCore import Qt, QPoint, QPointF
+from PyQt5.QtCore import Qt, QPoint, QPointF, pyqtSignal
 from PyQt5.QtGui import (
     QTextCharFormat,
     QTextBlockFormat,
@@ -76,21 +76,31 @@ class QGraphicsDropShadowEffect_multi(QGraphicsDropShadowEffect):
             super().draw(painter)
 
 
-class PlainLabel(QLabel):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setTextFormat(Qt.PlainText)
-
+class BorderedLabel(QLabel):
     def move(self, point: QPoint):
+        self.movedx = 0
+        self.movedy = 0
         text = self.text()
         isarabic = any((ord(char) >= 0x0600 and ord(char) <= 0x06E0) for char in text)
         if isarabic:
-            point.setX(point.x() - self.width())
+            self.movedx -= self.width()
+        self.movedx -= self.m_fontOutLineWidth
+        self.movedy -= self.m_fontOutLineWidth
+        point.setX(int(point.x() + self.movedx))
+        point.setY(int(point.y() + self.movedy))
         super().move(point)
 
+    def pos(self) -> QPoint:
+        p = super().pos()
+        p.setX(int(p.x() - self.movedx))
+        p.setY(int(p.y() - self.movedy))
+        return p
 
-class ShadowLabel(PlainLabel):
-    def setShadow(self, colorshadow, width, deepth, trace=False):
+    def clearShadow(self):
+        self.setGraphicsEffect(None)
+
+    def setShadow(self, colorshadow, width=1, deepth=1, trace=False):
+
         shadow2 = QGraphicsDropShadowEffect_multi(deepth)
         if trace:
             shadow2.setBlurRadius(width)
@@ -101,11 +111,10 @@ class ShadowLabel(PlainLabel):
         shadow2.setColor(QColor(colorshadow))
         self.setGraphicsEffect(shadow2)
 
-
-class BorderedLabel(ShadowLabel):
-
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.movedy = 0
+        self.movedx = 0
         self.m_outLineColor = QColor()
         self.m_fontOutLineWidth = 1
         self.m_contentColor = QColor()
@@ -120,17 +129,14 @@ class BorderedLabel(ShadowLabel):
         self._m_text = text
 
     def setColorWidth(self, outLineColor, contentColor, width, _type=0):
+
         self.m_outLineColor = QColor(outLineColor)
         self.m_contentColor = QColor(contentColor)
         self.m_fontOutLineWidth = width
         self._type = _type
 
-    def move(self, point: QPoint):
-        point.setX(int(point.x() - self.m_fontOutLineWidth))
-        point.setY(int(point.y() - self.m_fontOutLineWidth))
-        super().move(point)
-
     def adjustSize(self):
+        self._pix = None
         font = self.font()
         text = self.text()
         font_m = QFontMetrics(font)
@@ -138,6 +144,30 @@ class BorderedLabel(ShadowLabel):
             int(font_m.width(text) + 2 * self.m_fontOutLineWidth),
             int(font_m.height() + 2 * self.m_fontOutLineWidth),
         )
+
+    def labelresetcolor(self, color, rate=1):
+        c1 = color
+        c2 = globalconfig["miaobiancolor"]
+        if globalconfig["zitiyangshi2"] == 2:
+            self.setColorWidth(c1, c2, rate * globalconfig["miaobianwidth2"])
+            self.clearShadow()
+        elif globalconfig["zitiyangshi2"] == 3:
+            self.setColorWidth(c2, c1, rate * globalconfig["miaobianwidth2"])
+            self.clearShadow()
+        elif globalconfig["zitiyangshi2"] == 1:
+            self.setColorWidth(c1, c2, rate * globalconfig["miaobianwidth"], 1)
+            self.clearShadow()
+        elif globalconfig["zitiyangshi2"] == 4:
+            self.setColorWidth(c2, c1, rate * globalconfig["miaobianwidth2"])
+            self.setShadow(c2, rate * globalconfig["traceoffset"], 1, True)
+        elif globalconfig["zitiyangshi2"] == 0:
+            self.setColorWidth(None, c1, 0, 2)
+            self.clearShadow()
+        elif globalconfig["zitiyangshi2"] == 5:
+            self.setColorWidth(None, c2, 0, 2)
+            self.setShadow(
+                c1, rate * globalconfig["fontsize"], globalconfig["shadowforce"]
+            )
 
     def paintEvent(self, event):
         if not self._pix:
@@ -150,69 +180,73 @@ class BorderedLabel(ShadowLabel):
             font_m = QFontMetrics(font)
             painter = QPainter(self._pix)
 
-            path = QPainterPath()
-            path.addText(
-                self.m_fontOutLineWidth,
-                self.m_fontOutLineWidth + font_m.ascent(),
-                font,
-                text,
-            )
-
-            pen = QPen(
-                self.m_outLineColor,
-                self.m_fontOutLineWidth,
-                Qt.SolidLine,
-                Qt.RoundCap,
-                Qt.RoundJoin,
-            )
-
             painter.setRenderHint(QPainter.Antialiasing)
-            if self._type == 0:
-                painter.strokePath(path, pen)
-                painter.fillPath(path, QBrush(self.m_contentColor))
-            elif self._type == 1:
-                painter.fillPath(path, QBrush(self.m_contentColor))
-                painter.strokePath(path, pen)
+            path = QPainterPath()
+            if self._type == 2:
 
+                path.addText(
+                    0,
+                    font_m.ascent(),
+                    font,
+                    text,
+                )
+                painter.fillPath(path, QBrush(self.m_contentColor))
+            else:
+                path.addText(
+                    self.m_fontOutLineWidth,
+                    self.m_fontOutLineWidth + font_m.ascent(),
+                    font,
+                    text,
+                )
+
+                pen = QPen(
+                    self.m_outLineColor,
+                    self.m_fontOutLineWidth,
+                    Qt.SolidLine,
+                    Qt.RoundCap,
+                    Qt.RoundJoin,
+                )
+
+                if self._type == 0:
+                    painter.strokePath(path, pen)
+                    painter.fillPath(path, QBrush(self.m_contentColor))
+                elif self._type == 1:
+                    painter.fillPath(path, QBrush(self.m_contentColor))
+                    painter.strokePath(path, pen)
         painter = QPainter(self)
         painter.drawPixmap(0, 0, self._pix)
 
 
-class Textbrowser:
-    def movep(self, x, y):
-        self.savey = y
-        self.atback.move(0, int(y))
-        if globalconfig["isshowhira"] and globalconfig["isshowrawtext"]:
-            if self.jiaming_y_delta > 0:
-                y = y + self.jiaming_y_delta
-        self.textbrowser.move(int(x), int(y))
+class Textbrowser(QLabel):
+    contentsChanged = pyqtSignal(int, int)
 
-        self.atback2.move(0, int(y))
-        self.toplabel2.move(0, int(y))
+    def move(self, x, y):
+        super().move(x, y)
+        self.textbrowser.move(x, y)
+
+        self.atback2.move(x, y)
+        self.toplabel2.move(x, y)
+
+    def resizeEvent(self, event):
+        self.atback2.resize(event.size())
+        self.toplabel2.resize(event.size())
+
+    def contentchangedfunction(self):
+        sz = self.textbrowser.document().size().toSize()
+        self.textbrowser.resize(self.width(), sz.height())
+        self.contentsChanged.emit(sz.width(), sz.height())
 
     def __init__(self, parent):
-        self.parent = parent
-        self.savey = 0
-        # self.shadowlabel=QLabel(parent)
-        # self.shadowlabel.savetext=''
-        self.align = False
+        super().__init__(parent)
 
-        self.atback = QLabel(parent)
-
-        self.atback.setMouseTracking(True)
+        self.setMouseTracking(True)
 
         self.atback2 = QLabel(parent)
 
         self.toplabel2 = QLabel(parent)
         self.atback2.setMouseTracking(True)
         self.textbrowser = QTextBrowser(parent)
-
-        def __resizeevent(event: QResizeEvent):
-            self.atback.resize(event.size())
-            self.atback2.resize(event.size())
-            self.toplabel2.resize(event.size())
-
-        self.textbrowser.resizeEvent = __resizeevent
+        self.textbrowser.document().contentsChanged.connect(self.contentchangedfunction)
         self.tranparentcolor = QColor()
         self.tranparentcolor.setAlpha(0)
         self.textbrowser.setTextColor(self.tranparentcolor)
@@ -240,26 +274,17 @@ class Textbrowser:
         self.backcolorlabels = []
 
         self.yinyinglabels = []
+        self.yinyinglabels_idx = 0
 
         self.yinyingpos = 0
         self.yinyingposline = 0
         self.lastcolor = None
-        self.jiaming_y_delta = 0
         self.setselectable()
         self.blockcount = 0
         self.iteryinyinglabelsave = {}
 
     def setselectable(self):
         self.masklabel.setHidden(globalconfig["selectable"])
-
-    def setStyleSheet(self, x):
-        self.atback.setStyleSheet(x)
-
-    def document(self):
-        return self.textbrowser.document()
-
-    def resize(self, _1, _2):
-        self.textbrowser.resize(int(_1), int(_2))
 
     def setnextfont(self, origin):
         if origin:
@@ -277,19 +302,8 @@ class Textbrowser:
         c.setCharFormat(f)
         self.textbrowser.setTextCursor(c)
 
-    def setGeometry(self, _1, _2, _3, _4):
-        self.textbrowser.setGeometry(_1, _2, _3, _4)
-
-        self.savey = _2
-        # self.shadowlabel.setGeometry(_1,_2,_3,_4)
-        # self.shadowlabel.resize(_3,_4)
-
     def setAlignment(self, x):
         self.textbrowser.setAlignment(x)
-        if Qt.AlignCenter == x:
-            self.align = True
-        else:
-            self.align = False
 
     def append(self, x, tag, color):
         if self.cleared:
@@ -317,8 +331,6 @@ class Textbrowser:
         if len(tag) > 0:
             self.addtag(tag)
 
-        self.movep(0, self.savey)
-
         self.showyinyingtext(b1, b2, color)
 
     def getcurrpointer(self):
@@ -336,10 +348,10 @@ class Textbrowser:
 
     def showyinyingtext2(self, color, iter_context_class, pos, text):
         if iter_context_class not in self.iteryinyinglabelsave:
-            self.iteryinyinglabelsave[iter_context_class] = []
+            self.iteryinyinglabelsave[iter_context_class] = [[], 0]
         maxh = 0
         maxh2 = 9999999
-        for label in self.iteryinyinglabelsave[iter_context_class]:
+        for label in self.iteryinyinglabelsave[iter_context_class][0]:
             maxh2 = min(label.pos().y(), maxh2)
             if label.isVisible() == False:
                 continue
@@ -362,14 +374,24 @@ class Textbrowser:
 
         maxnewh = 0
         for i in range(len(subtext)):
+            if self.iteryinyinglabelsave[iter_context_class][1] >= len(
+                self.iteryinyinglabelsave[iter_context_class][0]
+            ):
+                self.iteryinyinglabelsave[iter_context_class][0].append(
+                    BorderedLabel(self.toplabel2)
+                )
             maxnewh = max(maxnewh, subpos[i].y())
-            _ = self.guesscreatelabel(self.toplabel2, color)
+            _ = self.iteryinyinglabelsave[iter_context_class][0][
+                self.iteryinyinglabelsave[iter_context_class][1]
+            ]
+            _.labelresetcolor(color)
             _.setText(subtext[i])
             _.setFont(self.font)
             _.adjustSize()
             _.move(subpos[i])
             _.show()
-            self.iteryinyinglabelsave[iter_context_class].append(_)
+            self.iteryinyinglabelsave[iter_context_class][1] += 1
+
         if maxh:
             if maxnewh == 0:
                 maxnewh = maxh2
@@ -377,15 +399,19 @@ class Textbrowser:
                 if label.isVisible() == False:
                     continue
                 if label.pos().y() > maxh:
-                    label.move(label.pos().x(), label.pos().y() + maxnewh - maxh)
+                    label.move(
+                        QPoint(label.pos().x(), label.pos().y() + maxnewh - maxh)
+                    )
             for klass in self.iteryinyinglabelsave:
                 if klass == iter_context_class:
                     continue
-                for label in self.iteryinyinglabelsave[klass]:
+                for label in self.iteryinyinglabelsave[klass][0]:
                     if label.isVisible() == False:
                         continue
                     if label.pos().y() > maxh:
-                        label.move(label.pos().x(), label.pos().y() + maxnewh - maxh)
+                        label.move(
+                            QPoint(label.pos().x(), label.pos().y() + maxnewh - maxh)
+                        )
 
     def showyinyingtext(self, b1, b2, color):
         linei = self.yinyingposline
@@ -407,13 +433,16 @@ class Textbrowser:
                 self.textbrowser.setTextCursor(self.textcursor)
                 tl1 = self.textbrowser.cursorRect(self.textcursor).topLeft()
 
-                _ = self.guesscreatelabel(self.toplabel2, color)
+                if self.yinyinglabels_idx >= len(self.yinyinglabels):
+                    self.yinyinglabels.append(BorderedLabel(self.toplabel2))
+                _ = self.yinyinglabels[self.yinyinglabels_idx]
+                self.yinyinglabels_idx += 1
+                _.labelresetcolor(color)
                 _.setText(block.text()[s : s + l])
                 _.setFont(self.font)
                 _.adjustSize()
                 _.move(tl1)
                 _.show()
-                self.yinyinglabels.append(_)
                 linei += 1
         self.yinyingposline = linei
 
@@ -429,7 +458,8 @@ class Textbrowser:
         idx = 0
         guesswidth = []
         guesslinehead = None
-        wwww = self.parent.width()
+        wwww = self.width()
+        heigth, __, _ = self.getfh(False)
         for word in x:
             idx += 1
             l = len(word["orig"])
@@ -473,14 +503,14 @@ class Textbrowser:
                             guesswidth1 = gw * len(word["orig"])
                             tailx = wwww - guesslinehead
                             pos1 = (
-                                tl1.x() + 2,
+                                tl1.x() + 1,
                                 tl1.y(),
-                                tailx - tl1.x() - 4,
-                                tl4.y() - tl1.y(),
+                                tailx - tl1.x() - 2,
+                                int(heigth),
                             )
                             xx = int(guesswidth1 - (tailx - tl1.x()))
                             guesslinehead = None
-                            pos2 = tl3.x() - xx + 2, tl3.y(), xx - 4, tl4.y() - tl1.y()
+                            pos2 = tl3.x() + 1 - xx, tl3.y(), xx - 2, int(heigth)
                             if (
                                 globalconfig["usesearchword"]
                                 or globalconfig["usecopyword"]
@@ -526,10 +556,10 @@ class Textbrowser:
                                 len(word["orig"])
                             )
                             pos1 = (
-                                tl1.x() + 2,
+                                tl1.x() + 1,
                                 tl1.y(),
-                                tl2.x() - tl1.x() - 4,
-                                tl2.y() - tl1.y(),
+                                tl2.x() - tl1.x() - 2,
+                                int(heigth),
                             )
                             if (
                                 globalconfig["usesearchword"]
@@ -585,32 +615,24 @@ class Textbrowser:
             font.setPointSizeF((globalconfig["fontsize"]))
         fm = QFontMetricsF(font)
 
-        fhall = fm.height()
-
-        return fhall, font
+        return fm.height(), fm.ascent(), font
 
     def addtag(self, x):
         pos = 0
 
-        fhall, fontorig = self.getfh(False)
-        fhhalf, fonthira = self.getfh(True)
+        fasall, _, fontorig = self.getfh(False)
+        fha, fascent, fonthira = self.getfh(True)
         for i in range(0, self.textbrowser.document().blockCount()):
             b = self.textbrowser.document().findBlockByNumber(i)
 
             tf = b.blockFormat()
-            tf.setLineHeight(fhall + fhhalf, QTextBlockFormat.FixedHeight)
-
+            tf.setLineHeight(fasall + fha, QTextBlockFormat.FixedHeight)
             self.textcursor.setPosition(b.position())
             self.textcursor.setBlockFormat(tf)
             self.textbrowser.setTextCursor(self.textcursor)
-            if i == 0:
-                tl1 = self.textbrowser.cursorRect(self.textcursor).topLeft().y()
-
-        if self.jiaming_y_delta + tl1 - fhhalf != 0:
-            self.jiaming_y_delta = fhhalf - tl1
-            self.movep(0, self.savey)
         x = self.nearmerge(x, pos, fonthira, fontorig)
         self.settextposcursor(pos)
+        savetaglabels_idx = 0
         for word in x:
             l = len(word["orig"])
 
@@ -625,9 +647,12 @@ class Textbrowser:
             # print(tl1,tl2,word['hira'],self.textbrowser.textCursor().position())
             if word["orig"] == " ":
                 continue
-            self.savetaglabels.append(
-                self.solvejiaminglabel(word, fonthira, tl1, tl2, fhhalf)
+            if savetaglabels_idx >= len(self.savetaglabels):
+                self.savetaglabels.append(BorderedLabel(self.atback2))
+            self.solvejiaminglabel(
+                self.savetaglabels[savetaglabels_idx], word, fonthira, tl1, tl2, fascent
             )
+            savetaglabels_idx += 1
 
     def settextposcursor(self, pos):
         self.textcursor.setPosition(pos)
@@ -699,40 +724,8 @@ class Textbrowser:
         self.settextposcursor(startpos)
         return res
 
-    def guesscreatelabel(self, p, color, rate=1):
-        c1 = color
-        c2 = globalconfig["miaobiancolor"]
-        if globalconfig["zitiyangshi2"] == 2:
-            label = BorderedLabel(p)
-            label.setColorWidth(c1, c2, rate * globalconfig["miaobianwidth2"])
-
-        elif globalconfig["zitiyangshi2"] == 3:
-            label = BorderedLabel(p)
-            label.setColorWidth(c2, c1, rate * globalconfig["miaobianwidth2"])
-        elif globalconfig["zitiyangshi2"] == 1:
-
-            label = BorderedLabel(p)
-            label.setColorWidth(c1, c2, rate * globalconfig["miaobianwidth"], 1)
-        elif globalconfig["zitiyangshi2"] == 4:
-            label = BorderedLabel(p)
-            label.setColorWidth(c2, c1, rate * globalconfig["miaobianwidth2"])
-            label.setShadow(c2, rate * globalconfig["traceoffset"], 1, True)
-        elif globalconfig["zitiyangshi2"] == 0:
-            label = PlainLabel(p)
-            label.setStyleSheet("color:{}; background-color:(0,0,0,0)".format(c1))
-        elif globalconfig["zitiyangshi2"] == 5:
-            label = ShadowLabel(p)
-            label.setStyleSheet("color:{}; background-color:(0,0,0,0)".format(c2))
-            label.setShadow(
-                c1, rate * globalconfig["fontsize"], globalconfig["shadowforce"]
-            )
-        return label
-
-    def solvejiaminglabel(self, word, font, tl1, tl2, fh):
-        _ = self.guesscreatelabel(
-            self.parent, globalconfig["jiamingcolor"], rate=globalconfig["kanarate"]
-        )
-
+    def solvejiaminglabel(self, _: BorderedLabel, word, font, tl1, tl2, fh):
+        _.labelresetcolor(globalconfig["jiamingcolor"], rate=globalconfig["kanarate"])
         _.setText(word["hira"])
         _.setFont(font)
         _.adjustSize()
@@ -750,8 +743,6 @@ class Textbrowser:
         else:
             x = tl1.x() / 2 + tl2.x() / 2 - w / 2
             y = tl2.y() - fh
-        y += globalconfig["buttonsize"] * 1.5
-        y += self.jiaming_y_delta
 
         _.move(QPoint(int(x), int(y)))
 
@@ -764,22 +755,16 @@ class Textbrowser:
         for label in self.searchmasklabels_clicked:
             label.hide()
         for label in self.savetaglabels:
-            label.deleteLater()
-            del label
-        self.savetaglabels.clear()
+            label.hide()
+
+        self.yinyinglabels_idx = 0
         for label in self.yinyinglabels:
-            label.deleteLater()
-            del label
-        self.yinyinglabels.clear()
+            label.hide()
         for klass, labels in self.iteryinyinglabelsave.items():
-            for label in labels:
-                label.deleteLater()
-                del label
-        self.iteryinyinglabelsave.clear()
+            for label in labels[0]:
+                label.hide()
+            labels[1] = 0
         self.yinyingpos = 0
         self.yinyingposline = 0
         self.cleared = True
-        self.textbrowser.setText("")
-
-        # self.shadowlabel.setText('')
-        # self.shadowlabel.savetext=''
+        self.textbrowser.clear()

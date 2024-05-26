@@ -11,6 +11,7 @@ import time
 from PyQt5.QtWidgets import (
     QApplication,
 )
+from PyQt5.QtGui import QImageWriter
 from traceback import print_exc
 from myutils.config import (
     globalconfig,
@@ -25,6 +26,18 @@ import threading
 import re, heapq, winsharedutils
 from myutils.vndb import searchfordata, getvidbytitle
 from myutils.wrapper import tryprint
+
+
+def getimageformatlist():
+    _ = [_.data().decode() for _ in QImageWriter.supportedImageFormats()]
+    if globalconfig["imageformat"] == -1 or globalconfig["imageformat"] >= len(_):
+        globalconfig["imageformat"] = _.index("png")
+    return _
+
+
+def getimageformat():
+
+    return getimageformatlist()[globalconfig["imageformat"]]
 
 
 class PriorityQueue:
@@ -581,3 +594,35 @@ def loadpostsettingwindowmethod(name):
         return tryprint(Process.get_setting_window)
     except:
         return None
+
+
+class unsupportkey(Exception):
+    pass
+
+
+def parsekeystringtomodvkcode(keystring, modes=False):
+    keys = []
+    mode = 0
+    _modes = []
+    if keystring[-1] == "+":
+        keys += ["+"]
+        keystring = keystring[:-2]
+    ksl = keystring.split("+")
+    ksl = ksl + keys
+    unsupports = []
+    if ksl[-1].upper() in static_data["vkcode_map"]:
+        vkcode = static_data["vkcode_map"][ksl[-1].upper()]
+    else:
+        unsupports.append(ksl[-1])
+
+    for k in ksl[:-1]:
+        if k.upper() in static_data["mod_map"]:
+            mode = mode | static_data["mod_map"][k.upper()]
+            _modes.append(static_data["mod_map"][k.upper()])
+        else:
+            unsupports.append(k)
+    if len(unsupports):
+        raise unsupportkey(unsupports)
+    if modes:
+        mode = _modes
+    return mode, vkcode

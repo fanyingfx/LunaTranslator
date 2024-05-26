@@ -12,5 +12,7 @@ class TS(basetransdev):
             )
         )
         return self.wait_for_result(
-            r"""document.evaluate('//*[@id="headlessui-tabs-panel-7"]/div/div[1]/section/div/div[2]/div[3]/section/div[1]/d-textarea/div',document).iterateNext().textContent"""
+            'document.getElementsByTagName("d-textarea")[1].textContent',
+            ("complete", ""),
+            multi=True,
         )
