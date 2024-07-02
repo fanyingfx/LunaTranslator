@@ -1,5 +1,5 @@
 import sys, windows
-import platform, os
+import platform, os, time
 
 if __name__ == "__main__":
     _lock = windows.AutoHandle(windows.CreateMutex(False, "LUNA_UPDATER_BLOCK"))
@@ -12,26 +12,32 @@ if __name__ == "__main__":
 
     from myutils.config import _TR, static_data, globalconfig
 
+    sys.path.append("./")
     sys.path.append("./userconfig")
     sys.path.insert(
         0, "./LunaTranslator/network/" + ["winhttp", "libcurl"][globalconfig["network"]]
     )
 
-    from gui.usefulwidget import getQMessageBox
-    from LunaTranslator import MAINUI
     import gobject
 
     gobject.overridepathexists()
+    from qtsymbols import *
 
-    from PyQt5.QtCore import Qt
-    from PyQt5.QtWidgets import QApplication
-    from PyQt5.QtGui import QFont
+    if isqt5:
+        # 中文字符下不能自动加载
+        QApplication.addLibraryPath("./LunaTranslator/runtime/PyQt5/Qt5/plugins")
+        QApplication.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling)
+        QApplication.setAttribute(Qt.ApplicationAttribute.AA_UseHighDpiPixmaps)
+    if gobject.testuseqwebengine():
+        # maybe use qwebengine
 
-    QApplication.addLibraryPath(
-        "./LunaTranslator/runtime/PyQt5/Qt5/plugins"
-    )  # 中文字符下不能自动加载
-    QApplication.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling)
-    QApplication.setAttribute(Qt.ApplicationAttribute.AA_UseHighDpiPixmaps)
+        QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
+        if not isqt5:
+            # devtool
+            QApplication.setAttribute(
+                Qt.ApplicationAttribute.AA_DontCreateNativeWidgetSiblings
+            )
+
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
@@ -54,6 +60,8 @@ if __name__ == "__main__":
         if os.path.exists(f) == False:
             collect.append(f)
     if len(collect):
+        from gui.usefulwidget import getQMessageBox
+
         getQMessageBox(
             None,
             _TR("错误"),
@@ -66,7 +74,9 @@ if __name__ == "__main__":
         )
         os._exit(0)
 
+    from LunaTranslator import MAINUI
+
     gobject.baseobject = MAINUI()
     gobject.baseobject.checklang()
-    gobject.baseobject.aa()
-    app.exit(app.exec_())
+    gobject.baseobject.loadui()
+    app.exit(app.exec())

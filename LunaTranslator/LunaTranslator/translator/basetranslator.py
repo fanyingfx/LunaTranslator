@@ -1,15 +1,13 @@
 from traceback import print_exc
 from queue import Queue
-
-from myutils.config import globalconfig, translatorsetting, getlangtgt
 from threading import Thread
 import time, types
 import zhconv, gobject
 import sqlite3, os
-from myutils.commonbase import commonbase
 import functools
-from myutils.utils import stringfyerror, autosql, PriorityQueue
-from myutils.commonbase import ArgsEmptyExc
+from myutils.config import globalconfig, translatorsetting
+from myutils.utils import stringfyerror, autosql, PriorityQueue, getlangtgt
+from myutils.commonbase import ArgsEmptyExc, commonbase
 
 
 class TimeOut(Exception):
@@ -111,10 +109,12 @@ class basetrans(commonbase):
 
         if self.transtype != "pre":
             try:
-                os.makedirs("./translation_record/cache", exist_ok=True)
+
                 self.sqlwrite2 = autosql(
                     sqlite3.connect(
-                        "./translation_record/cache/{}.sqlite".format(self.typename),
+                        gobject.gettranslationrecorddir(
+                            "cache/{}.sqlite".format(self.typename)
+                        ),
                         check_same_thread=False,
                         isolation_level=None,
                     )
@@ -241,6 +241,8 @@ class basetrans(commonbase):
         return res
 
     def cachesetatend(self, contentsolved, res):
+        if self.transtype == "pre":
+            return
         if globalconfig["uselongtermcache"]:
             self.longtermcacheset(contentsolved, res)
         self.shorttermcacheset(contentsolved, res)
@@ -272,9 +274,7 @@ class basetrans(commonbase):
 
     def _iterget(self, __callback, rid, __res):
         succ = True
-        for i, _res in enumerate(__res):
-            if i == 0:
-                __callback("", 3)
+        for _res in __res:
             if self.requestid != rid:
                 succ = False
                 break
@@ -282,15 +282,20 @@ class basetrans(commonbase):
         if succ:
             __callback("", 2)
 
-    def __callback(self, collectiterres, callback, embedcallback, _, is_iter_res):
+    def __callback(self, collectiterres, callback, embedcallback, ares, is_iter_res):
         if self.needzhconv:
-            _ = zhconv.convert(_, "zh-tw")
-        if _ == "\0":  # 清除前面的输出
+            ares = zhconv.convert(ares, "zh-tw")
+        if ares == "\0":  # 清除前面的输出
             collectiterres.clear()
             pass
         else:
-            collectiterres.append(_)
-        callback("".join(collectiterres), embedcallback, is_iter_res)
+            collectiterres.append(ares)
+        __ = ""
+        for ares in collectiterres:
+            if ares is None:
+                continue
+            __ += ares
+        callback(__, embedcallback, is_iter_res)
 
     def reinitandtrans(self, contentraw, contentsolved, is_auto_run):
         if self.needreinit or self.initok == False:
@@ -345,7 +350,8 @@ class basetrans(commonbase):
 
                     else:
                         __callback(res, 0)
-                    self.cachesetatend(contentsolved, "".join(collectiterres))
+                    if all([_ is not None for _ in collectiterres]):
+                        self.cachesetatend(contentsolved, "".join(collectiterres))
             except Exception as e:
                 if self.using and globalconfig["showtranexception"]:
                     if isinstance(e, ArgsEmptyExc):

@@ -21,7 +21,7 @@ Thumbs.db
 *.wav 
 build/
 
-
+plugins/libs/webview2
 plugins/builds
 plugins/build
 temp/
@@ -32,3 +32,10 @@ LunaTranslator/files/ocr
 LunaTranslator/files/data
 LunaTranslator/chrome_cache
 plugins/.vscode/settings.json
+
+LunaTranslator/files/themes
+LunaTranslator/LunaTranslator/rendertext/luna.png
+LunaTranslator/run37.bat
+LunaTranslator/run3732.bat
+LunaTranslator/run38.bat
+LunaTranslator/run3832.bat

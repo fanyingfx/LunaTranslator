@@ -1,22 +1,9 @@
+from qtsymbols import *
 import functools
-from PyQt5.QtWidgets import (
-    QCheckBox,
-    QLabel,
-    QLineEdit,
-    QPushButton,
-    QDialog,
-    QVBoxLayout,
-    QHeaderView,
-)
-from PyQt5.QtWidgets import QHBoxLayout, QTableView
-from PyQt5.QtGui import QStandardItem, QStandardItemModel
-from PyQt5.QtWidgets import QComboBox
-from PyQt5.QtCore import Qt, QSize
-from gui.usefulwidget import getspinbox, threebuttons, getlineedit
 from myutils.utils import checkencoding
 from myutils.config import globalconfig, _TR, _TRL
-
-from myutils.wrapper import Singleton
+from myutils.wrapper import Singleton_close
+from gui.usefulwidget import getspinbox, threebuttons, getlineedit, FocusCombo
 
 nowsuppertcodes = _TRL(
     [
@@ -31,7 +18,7 @@ nowsuppertcodes = _TRL(
 nowsuppertcodespy = ["SHIFT-JIS", "GBK", "BIG5", "EUC-KR", "ASCII"]
 
 
-@Singleton
+@Singleton_close
 class codeacceptdialog(QDialog):
     def _setcode_i(self, combox: QComboBox, itemsaver_, code="", idx=0):
         itemsaver_.saveidx = idx
@@ -49,7 +36,7 @@ class codeacceptdialog(QDialog):
             itemsaver_.setText(code)
 
     def __init__(self, parent) -> None:
-        super().__init__(parent, Qt.WindowCloseButtonHint)
+        super().__init__(parent, Qt.WindowType.WindowCloseButtonHint)
         title = "接受的编码"
         self.setWindowTitle(_TR(title))
         # self.setWindowModality(Qt.ApplicationModal)
@@ -61,7 +48,9 @@ class codeacceptdialog(QDialog):
         self.model.setHorizontalHeaderLabels(_TRL(["接受的编码"]))
         self.table = QTableView(self)
         self.table.setModel(self.model)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
 
         row = 0
         for code in globalconfig["accept_encoding"]:  # 2
@@ -73,7 +62,7 @@ class codeacceptdialog(QDialog):
             itemsaver = QStandardItem()
             self.model.setItem(row, 0, itemsaver)
             index = self.model.index(row, 0)
-            codecombox = QComboBox()
+            codecombox = FocusCombo()
             codecombox.addItems((nowsuppertcodes))
             codecombox.setCurrentIndex(idx)
             self.table.setIndexWidget(index, codecombox)
@@ -87,7 +76,7 @@ class codeacceptdialog(QDialog):
             )
 
             row += 1
-        button = threebuttons()
+        button = threebuttons(texts=["添加行", "删除行", "立即应用"])
         button.btn1clicked.connect(self.clicked1)
         button.btn2clicked.connect(self.clicked2)
         button.btn3clicked.connect(self.apply)
@@ -120,7 +109,7 @@ class codeacceptdialog(QDialog):
     def clicked1(self):
         itemsaver = QStandardItem()
         self.model.insertRow(0, [itemsaver])
-        codecombox = QComboBox()
+        codecombox = FocusCombo()
         codecombox.addItems((nowsuppertcodes))
         self._setcode_i(codecombox, itemsaver)
         codecombox.currentIndexChanged.connect(
@@ -133,8 +122,15 @@ class codeacceptdialog(QDialog):
         self.table.setIndexWidget(index, codecombox)
 
     def clicked2(self):
+        skip = []
+        for index in self.table.selectedIndexes():
+            if index.row() in skip:
+                continue
+            skip.append(index.row())
+        skip = reversed(sorted(skip))
 
-        self.model.removeRow(self.table.currentIndex().row())
+        for row in skip:
+            self.model.removeRow(row)
 
     def apply(self):
 

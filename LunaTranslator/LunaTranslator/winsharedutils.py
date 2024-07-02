@@ -19,8 +19,10 @@ from ctypes import (
     c_float,
     c_double,
     c_char,
+    CFUNCTYPE,
+    c_long,
 )
-from ctypes.wintypes import WORD, HANDLE, HWND, LONG, DWORD
+from ctypes.wintypes import WORD, HANDLE, HWND, LONG, DWORD, RECT, BYTE
 from windows import WINDOWPLACEMENT
 import gobject, csv
 
@@ -126,7 +128,9 @@ def SAPI_Speak(content, v, voiceid, rate, volume):
     return data
 
 
-def distance(s1, s2):  # 词典更适合用编辑距离，因为就一两个字符，相似度会很小，预翻译适合用相似度
+def distance(
+    s1, s2
+):  # 词典更适合用编辑距离，因为就一两个字符，相似度会很小，预翻译适合用相似度
     return _levenshtein_distance(len(s1), s1, len(s2), s2)
 
 
@@ -147,13 +151,15 @@ class mecabwrap:
         surface = POINTER(c_char_p)()
         feature = POINTER(c_char_p)()
         num = c_uint()
-        _mecab_parse(
+        succ = _mecab_parse(
             self.kks,
             text.encode(codec),
             pointer(surface),
             pointer(feature),
             pointer(num),
         )
+        if not succ:
+            raise Exception  # failed
         res = []
         for i in range(num.value):
             f = feature[i]
@@ -183,6 +189,8 @@ def clipboard_get():
         return ""
 
 
+html_version = utilsdll.html_version
+html_version.restype = DWORD
 html_new = utilsdll.html_new
 html_new.argtypes = (c_void_p,)
 html_new.restype = c_void_p
@@ -202,6 +210,10 @@ html_set_html.argtypes = (
 
 
 class HTMLBrowser:
+    @staticmethod
+    def version():
+        return html_version()
+
     def __init__(self, parent) -> None:
         self.html = html_new(parent)
 
@@ -305,10 +317,7 @@ _SetTheme.argtypes = HWND, c_bool, c_int
 
 
 def SetTheme(hwnd, dark, backdrop):
-    try:  # win7 x86 crash unknown why
-        _SetTheme(hwnd, dark, backdrop)
-    except:
-        pass
+    _SetTheme(hwnd, dark, backdrop)
 
 
 showintab = utilsdll.showintab
@@ -329,6 +338,16 @@ recoverwindow.argtypes = HWND, windowstatus
 pid_running = utilsdll.pid_running
 pid_running.argtypes = (DWORD,)
 pid_running.restype = c_bool
+
+
+def collect_running_pids(pids):
+    _ = []
+    for __ in pids:
+        if not pid_running(__):
+            continue
+        _.append(__)
+    return _
+
 
 getpidhwndfirst = utilsdll.getpidhwndfirst
 getpidhwndfirst.argtypes = (DWORD,)
@@ -359,3 +378,58 @@ PlayAudioInMem.restype = c_int
 
 PlayAudioInMem_Stop = utilsdll.PlayAudioInMem_Stop
 PlayAudioInMem_Stop.argtypes = c_void_p, c_void_p
+
+_gdi_screenshot = utilsdll.gdi_screenshot
+_gdi_screenshot.argtypes = HWND, RECT, POINTER(c_size_t)
+_gdi_screenshot.restype = POINTER(BYTE)
+
+
+def gdi_screenshot(x1, y1, x2, y2, hwnd=None):
+    sz = c_size_t()
+    rect = RECT()
+    rect.left = x1
+    rect.top = y1
+    rect.right = x2
+    rect.bottom = y2
+    bf = _gdi_screenshot(hwnd, rect, pointer(sz))
+    if not (sz.value and bf):
+        return None
+    data = cast(bf, POINTER(c_char))[: sz.value]
+    c_free(bf)
+    return data
+
+
+maximum_window = utilsdll.maximum_window
+maximum_window.argtypes = (HWND,)
+
+setAeroEffect = utilsdll.setAeroEffect
+setAeroEffect.argtypes = (HWND,)
+setAcrylicEffect = utilsdll.setAcrylicEffect
+setAcrylicEffect.argtypes = (HWND,)
+clearEffect = utilsdll.clearEffect
+clearEffect.argtypes = (HWND,)
+
+add_ZoomFactorChanged_CALLBACK = CFUNCTYPE(None, c_double)
+add_ZoomFactorChanged = utilsdll.add_ZoomFactorChanged
+add_ZoomFactorChanged.argtypes = (c_void_p, c_void_p)
+add_ZoomFactorChanged.restype = c_void_p
+remove_ZoomFactorChanged = utilsdll.remove_ZoomFactorChanged
+remove_ZoomFactorChanged.argtypes = c_void_p, c_void_p
+get_ZoomFactor = utilsdll.get_ZoomFactor
+get_ZoomFactor.argtypes = (c_void_p,)
+get_ZoomFactor.restype = c_double
+put_ZoomFactor = utilsdll.put_ZoomFactor
+put_ZoomFactor.argtypes = c_void_p, c_double
+put_PreferredColorScheme = utilsdll.put_PreferredColorScheme
+put_PreferredColorScheme.argtypes = c_void_p, c_int
+put_PreferredColorScheme.restype = c_long
+set_transparent_background = utilsdll.set_transparent_background
+set_transparent_background.argtypes = (c_void_p,)
+
+
+clipboard_callback = utilsdll.clipboard_callback
+clipboard_callback.argtypes = (c_void_p,)
+clipboard_callback.restype = HWND
+clipboard_callback_stop = utilsdll.clipboard_callback_stop
+clipboard_callback_stop.argtypes = (HWND,)
+clipboard_callback_type = CFUNCTYPE(None, c_wchar_p, c_bool)

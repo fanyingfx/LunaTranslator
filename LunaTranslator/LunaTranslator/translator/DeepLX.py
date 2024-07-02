@@ -10,14 +10,14 @@ class TS(basetrans):
         return x  # {"zh":"ZH","ja":"JA","en":"EN","es":"ES","fr":"FR","ru":"RU"}
 
     def translate(self, query):
-
+        self.checkempty(["api"])
         payload = {
             "text": query,
             "source_lang": self.srclang,
             "target_lang": self.tgtlang,
         }
 
-        response = self.session.post(self.config["api"], json=payload)
+        response = self.proxysession.post(self.config["api"], json=payload)
 
         try:
             return response.json()["data"]

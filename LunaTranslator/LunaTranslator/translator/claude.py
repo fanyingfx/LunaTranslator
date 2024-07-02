@@ -72,8 +72,8 @@ class TS(basetrans):
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
         }
-        if len(self.config["API_KEY"]):
-            headers.update({"X-Api-Key": self.config["API_KEY"]})
+        if len(self.multiapikeycurrent["API_KEY"]):
+            headers.update({"X-Api-Key": self.multiapikeycurrent["API_KEY"]})
         # elif len(self.config["AUTH_TOKEN"]):
         #    headers.update({"Authorization": f'Bearer {self.config["AUTH_TOKEN"]}'})
         else:
@@ -88,7 +88,7 @@ class TS(basetrans):
             temperature=temperature,
             stream=usingstream,
         )
-        response = self.session.post(
+        response = self.proxysession.post(
             self.checkv1(self.config["BASE_URL"]) + "/messages",
             headers=headers,
             json=data,

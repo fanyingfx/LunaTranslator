@@ -1,5 +1,6 @@
 from myutils.proxy import getproxy
-from myutils.config import getlangtgt, _TR, static_data, getlangsrc
+from myutils.utils import getlangtgt, getlangsrc
+from myutils.config import _TR, static_data
 from myutils.wrapper import stripwrapper
 import requests
 
@@ -96,7 +97,7 @@ class commonbase:
         self.level2init()
 
     def renewsesion(self):
-        self.session = proxysession(self._globalconfig_key, self.typename)
+        self.proxysession = proxysession(self._globalconfig_key, self.typename)
 
     def level2init(self):
         pass

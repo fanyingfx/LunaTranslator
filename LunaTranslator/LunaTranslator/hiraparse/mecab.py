@@ -35,9 +35,7 @@ class mecab(basehira):
         start = 0
         result = []
         codec = ["utf8", "shiftjis"][self.config["codec"]]
-        for node, fields in self.kks.parse(
-            text, codec
-        ):  # self.kks.parseToNodeList(text):
+        for node, fields in self.kks.parse(text, codec):
             kana = ""
             origorig = ""
             pos1 = fields[0]
@@ -53,9 +51,10 @@ class mecab(basehira):
             elif len(fields) == 9:
                 kana = fields[8]
                 origorig = fields[7]
-            
+            elif len(fields) == 6:  # 英文
+                kana = origorig = node
             l = 0
-            
+
             while str(node) not in text[start : start + l]:
                 l += 1
             orig = text[start : start + l]
@@ -77,9 +76,9 @@ class mecab(basehira):
             result.append(
                 {"orig": orig, "hira": hira, "cixing": pos1, "origorig": origorig}
             )
-        extras=text[start :]
+        extras = text[start:]
         if len(extras):
             result.append(
-                {"orig": extras, "hira": extras, "cixing": '', "origorig": extras}
+                {"orig": extras, "hira": extras, "cixing": "", "origorig": extras}
             )
         return result

@@ -15,6 +15,35 @@ def GetDllpath(_, base=None):
         return os.path.join(base, _[isbit64])
 
 
+def getcachedir(name, basedir="cache"):
+
+    fd = os.path.dirname(name)
+    fn = os.path.basename(name)
+    fn1 = os.path.abspath(basedir)
+    fn1 = os.path.join(fn1, fd)
+    os.makedirs(fn1, exist_ok=True)
+    fn1 = os.path.join(fn1, fn)
+    return fn1
+
+
+def getuserconfigdir(name):
+    return getcachedir(name, "userconfig")
+
+
+def gettranslationrecorddir(name):
+    return getcachedir(name, "translation_record")
+
+
+def gettempdir_1():
+    tgt = getcachedir("temp")
+    return tgt
+
+
+def gettempdir(filename):
+    tgt = getcachedir(os.path.join(f"temp/{os.getpid()}", filename))
+    return tgt
+
+
 def dopathexists(file):
     if not file:
         return False
@@ -29,3 +58,9 @@ def dopathexists(file):
 def overridepathexists():
     # win7上，如果假如没有D盘，然后os.path.exists("D:/...")，就会弹窗说不存在D盘
     os.path.exists = dopathexists
+
+
+def testuseqwebengine():
+    return os.path.exists(
+        "./LunaTranslator/runtime/PyQt5/Qt5/bin/Qt5WebEngineCore.dll"
+    ) or (len(sys.argv) and sys.argv[-1] == "test")

@@ -8,10 +8,10 @@
 </div>
 
 <script>
-    ruby = JSON.parse(decodeURIComponent("{{ rubytext }}"))
-    html = ''
+    var ruby = JSON.parse(decodeURIComponent("{{ rubytext }}"))
+    var html = ''
     if (ruby.length) {
-        for (i = 0; i < ruby.length; i++) {
+        for (var i = 0; i < ruby.length; i++) {
             html += ruby[i]['orig'];
             if (ruby[i]['orig'] != ruby[i]['hira'])
                 html += '<rt>' + ruby[i]['hira'] + '</rt>';

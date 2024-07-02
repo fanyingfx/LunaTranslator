@@ -1,42 +1,37 @@
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (
-    QPlainTextEdit,
-    QAction,
-    QMenu,
-    QHBoxLayout,
-    QWidget,
-    QPushButton,
-    QVBoxLayout,
-)
-from PyQt5.QtCore import Qt, pyqtSignal, QPoint
-import qtawesome
-import threading
-import gobject
-from myutils.config import globalconfig, _TR
-from gui.usefulwidget import closeashidewindow
-from myutils.config import globalconfig
+from qtsymbols import *
+import threading, windows, time
+import gobject, qtawesome
+from myutils.config import globalconfig, _TR, _TRL
+from myutils.utils import str2rgba
+from myutils.wrapper import Singleton_close, threader
+from gui.usefulwidget import saveposwindow, getsimplecombobox
 
 
-class edittext(closeashidewindow):
+@Singleton_close
+class edittext(saveposwindow):
     getnewsentencesignal = pyqtSignal(str)
 
-    def __init__(self, parent):
-        super(edittext, self).__init__(parent, globalconfig, "edit_geo")
-        self.sync = True
+    def closeEvent(self, e):
+        gobject.baseobject.edittextui = None
+        super().closeEvent(e)
+
+    def __init__(self, parent, cached):
+        super().__init__(parent, poslist=globalconfig["edit_geo"])
         self.setupUi()
 
         # self.setWindowFlags(self.windowFlags()&~Qt.WindowMinimizeButtonHint)
         self.getnewsentencesignal.connect(self.getnewsentence)
         self.setWindowTitle(_TR("编辑"))
+        if cached:
+            self.getnewsentence(cached)
 
     def setupUi(self):
         self.setWindowIcon(qtawesome.icon("fa.edit"))
 
         self.textOutput = QPlainTextEdit(self)
 
-        self.textOutput.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.textOutput.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
 
-        self.charformat = self.textOutput.currentCharFormat()
         self.textOutput.customContextMenuRequested.connect(self.showmenu)
         # self.setCentralWidget(self.textOutput)
 
@@ -53,8 +48,12 @@ class edittext(closeashidewindow):
         )
         bt2 = QPushButton(
             icon=qtawesome.icon(
-                "fa.forward" if self.sync else "fa.play",
-                color="#FF69B4" if self.sync else globalconfig["buttoncolor"],
+                "fa.forward" if gobject.baseobject.edittextui_sync else "fa.play",
+                color=(
+                    "#FF69B4"
+                    if gobject.baseobject.edittextui_sync
+                    else globalconfig["buttoncolor"]
+                ),
             )
         )
 
@@ -69,8 +68,6 @@ class edittext(closeashidewindow):
         qv.addLayout(qvb)
         qv.addWidget(self.textOutput)
 
-        self.hiding = True
-
     def run(self):
         threading.Thread(
             target=gobject.baseobject.textgetmethod,
@@ -78,11 +75,15 @@ class edittext(closeashidewindow):
         ).start()
 
     def changestate(self):
-        self.sync = not self.sync
+        gobject.baseobject.edittextui_sync = not gobject.baseobject.edittextui_sync
         self.bt2.setIcon(
             qtawesome.icon(
-                "fa.forward" if self.sync else "fa.play",
-                color="#FF69B4" if self.sync else globalconfig["buttoncolor"],
+                "fa.forward" if gobject.baseobject.edittextui_sync else "fa.play",
+                color=(
+                    "#FF69B4"
+                    if gobject.baseobject.edittextui_sync
+                    else globalconfig["buttoncolor"]
+                ),
             )
         )
 
@@ -90,11 +91,91 @@ class edittext(closeashidewindow):
         menu = QMenu(self.textOutput)
         qingkong = QAction(_TR("清空"))
         menu.addAction(qingkong)
-        action = menu.exec(self.mapToGlobal(self.textOutput.pos()) + point)
+        action = menu.exec(QCursor.pos())
         if action == qingkong:
             self.textOutput.clear()
 
     def getnewsentence(self, sentence):
-        if self.sync:
-            self.textOutput.setCurrentCharFormat(self.charformat)
+        if gobject.baseobject.edittextui_sync:
             self.textOutput.setPlainText(sentence)
+
+
+@Singleton_close
+class edittrans(QMainWindow):
+
+    def __init__(self, parent):
+        super().__init__(parent, Qt.WindowType.FramelessWindowHint)
+        self.setupUi()
+        self.idx = 0
+        self.trykeeppos()
+
+    def trykeeppos(self):
+        self.followhwnd = gobject.baseobject.textsource.hwnd
+        rect = windows.GetWindowRect(self.followhwnd)
+        if rect is None:
+            raise
+        t = QTimer(self)
+        t.setInterval(100)
+        t.timeout.connect(self.follow)
+        t.timeout.emit()
+        t.start()
+
+    def follow(self):
+        rect = windows.GetWindowRect(self.followhwnd)
+        if rect is None:
+            return
+        self.move((QPoint(rect[0], rect[3])) / self.devicePixelRatioF())
+        self.resize((QSize(rect[2] - rect[0], 1)) / self.devicePixelRatioF())
+        if self.idx == 0:
+            self.show()
+        self.idx += 1
+
+    def setupUi(self):
+        self.setWindowIcon(qtawesome.icon("fa.edit"))
+
+        self.textOutput = QPlainTextEdit(self)
+        qv = QHBoxLayout()
+        w = QWidget()
+        self.setCentralWidget(w)
+        w.setLayout(qv)
+
+        submit = QPushButton(_TR("确定"))
+        qv.addWidget(self.textOutput)
+        qv.addWidget(
+            getsimplecombobox(
+                _TRL([globalconfig["fanyi"][x]["name"] for x in globalconfig["fanyi"]]),
+                globalconfig,
+                "realtime_edit_target",
+                internallist=list(globalconfig["fanyi"]),
+            )
+        )
+        qv.addWidget(submit)
+        submit.clicked.connect(self.submitfunction)
+
+    def submitfunction(self):
+        text = self.textOutput.toPlainText()
+        if len(text) == 0:
+            return
+        try:
+            gobject.baseobject.textsource.sqlqueueput(
+                (
+                    gobject.baseobject.currenttext,
+                    globalconfig["realtime_edit_target"],
+                    text,
+                )
+            )
+            displayreskwargs = dict(
+                name=globalconfig["fanyi"]["realtime_edit"]["name"],
+                color=globalconfig["fanyi"]["realtime_edit"]["color"],
+                res=text,
+                onlytrans=False,
+                iter_context=(1, "realtime_edit_directvis_fakeclass"),
+            )
+            gobject.baseobject.translation_ui.displayres.emit(displayreskwargs)
+            displayreskwargs.update(
+                dict(iter_context=(2, "realtime_edit_directvis_fakeclass"))
+            )  # 显示到历史翻译
+            gobject.baseobject.translation_ui.displayres.emit(displayreskwargs)
+            self.textOutput.clear()
+        except:
+            pass

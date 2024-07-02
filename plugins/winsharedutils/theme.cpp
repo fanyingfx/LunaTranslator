@@ -1,13 +1,27 @@
 ﻿#include "define.h"
 // https://github.com/Blinue/Xaml-Islands-Cpp/blob/main/src/XamlIslandsCpp/XamlWindow.h
 
-enum WindowBackdrop : int32_t
+static uint32_t GetOSversion() noexcept
 {
-    SolidColor = 0,
-    Acrylic = 1,
-    Mica = 2,
-    MicaAlt = 3,
-};
+    HMODULE hNtDll = GetModuleHandle(L"ntdll.dll");
+    if (!hNtDll)
+    {
+        return 0;
+    }
+
+    auto rtlGetVersion = (LONG(WINAPI *)(PRTL_OSVERSIONINFOW))GetProcAddress(hNtDll, "RtlGetVersion");
+    if (rtlGetVersion == nullptr)
+    {
+        // assert(false);
+        return 0;
+    }
+
+    RTL_OSVERSIONINFOW version{};
+    version.dwOSVersionInfoSize = sizeof(version);
+    rtlGetVersion(&version);
+
+    return version.dwMajorVersion;
+}
 
 static uint32_t GetOSBuild() noexcept
 {
@@ -30,7 +44,6 @@ static uint32_t GetOSBuild() noexcept
 
     return version.dwBuildNumber;
 }
-
 struct Win32Helper
 {
     struct OSVersion
@@ -137,36 +150,44 @@ static void SetWindowTheme(HWND hWnd, bool darkBorder, bool darkMenu) noexcept
     RefreshImmersiveColorPolicyState();
     FlushMenuThemes();
 }
-bool _SetTheme(
+DECLARE void _SetTheme(
     HWND _hWnd,
     bool dark,
     int backdrop)
 {
-    auto _isBackgroundSolidColor = backdrop == WindowBackdrop::SolidColor;
-    if (Win32Helper::GetOSVersion().Is22H2OrNewer() &&
-        _isBackgroundSolidColor != (backdrop == WindowBackdrop::SolidColor))
-    {
-        return true;
-    }
+    // printf("%d %d\n",GetOSversion(),GetOSBuild());
+    if (GetOSversion() <= 6)//win7 x32 DwmSetWindowAttribute会崩，直接禁了反正没用。不知道win8怎么样。
+        return;
+    // auto _isBackgroundSolidColor = backdrop == WindowBackdrop::SolidColor;
+    // if (Win32Helper::GetOSVersion().Is22H2OrNewer() &&
+    //     _isBackgroundSolidColor != (backdrop == WindowBackdrop::SolidColor))
+    // {
+    //     return true;
+    // }
 
-    // Win10 中即使在亮色主题下我们也使用暗色边框，这也是 UWP 窗口的行为
+    //  Win10 中即使在亮色主题下我们也使用暗色边框，这也是 UWP 窗口的行为
     SetWindowTheme(
         _hWnd,
         Win32Helper::GetOSVersion().IsWin11() ? dark : true,
         dark);
 
-    if (!Win32Helper::GetOSVersion().Is22H2OrNewer())
-    {
-        return false;
-    }
+    // if (!Win32Helper::GetOSVersion().Is22H2OrNewer())
+    // {
+    //     return false;
+    // }
 
+    // 非常诡异，这里mar，BACKDROP_MAP，value的声明顺序会导致在win7-32位上崩溃，原因未知。
+    MARGINS mar{-1, -1, -1, -1};
+    // 这个最重要，不可以跳过，否则transaprent会黑。win7无效，仍然是黑的，所以win7不可以使用QTWIN11主题。
+    DwmExtendFrameIntoClientArea(_hWnd, &mar);
+
+    // https://learn.microsoft.com/zh-cn/windows/win32/api/dwmapi/ne-dwmapi-dwm_systembackdrop_type
     // 设置背景
     static const DWM_SYSTEMBACKDROP_TYPE BACKDROP_MAP[] = {
         DWMSBT_AUTO, DWMSBT_TRANSIENTWINDOW, DWMSBT_MAINWINDOW, DWMSBT_TABBEDWINDOW};
-    DWM_SYSTEMBACKDROP_TYPE value = BACKDROP_MAP[(int)backdrop];
+    DWM_SYSTEMBACKDROP_TYPE value = BACKDROP_MAP[backdrop];
+    // 不管操作系统版本了，硬设置就行，测试不会崩溃，让系统自己处理。
     DwmSetWindowAttribute(_hWnd, DWMWA_SYSTEMBACKDROP_TYPE, &value, sizeof(value));
-
-    return false;
 }
 
 DECLARE bool isDark()

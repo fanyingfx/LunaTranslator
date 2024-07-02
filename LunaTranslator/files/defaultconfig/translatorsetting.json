@@ -6,7 +6,7 @@
 	},
 	"DeepLX": {
 		"args": {
-			"api": "https://api.deeplx.org/translate"
+			"api": ""
 		}
 	},
 	"baiduapi": {
@@ -91,7 +91,14 @@
 	},
 	"sugoix": {
 		"args": {
+			"V8": "https://github.com/HIllya51/RESOURCES/releases/download/softwares/Sugoi_Translator_V8.7z",
 			"api": "http://127.0.0.1:14366/"
+		},
+		"argstype": {
+			"V8": {
+				"type": "label",
+				"islink": true
+			}
 		}
 	},
 	"huoshanapi": {
@@ -182,6 +189,9 @@
 			"注册网址2": "https://learn.microsoft.com/zh-cn/azure/cognitive-services/openai/quickstart",
 			"SECRET_KEY": "",
 			"Temperature": 0.3,
+			"top_p": 0.3,
+			"max_tokens": 128,
+			"frequency_penalty": 0,
 			"model": "gpt-3.5-turbo",
 			"附带上下文个数": 0,
 			"OPENAI_API_BASE": "https://api.openai.com/v1",
@@ -192,6 +202,24 @@
 			"流式输出": false
 		},
 		"argstype": {
+			"top_p": {
+				"type": "spin",
+				"min": 0,
+				"max": 1,
+				"step": 0.01
+			},
+			"frequency_penalty": {
+				"type": "spin",
+				"min": 0,
+				"max": 2,
+				"step": 0.05
+			},
+			"max_tokens": {
+				"type": "intspin",
+				"min": 1,
+				"max": 4096,
+				"step": 1
+			},
 			"流式输出": {
 				"type": "switch"
 			},
@@ -269,17 +297,37 @@
 	},
 	"chatgpt-3rd-party": {
 		"args": {
-			"使用说明": "oneapi/gptgod/...",
-			"SECRET_KEY": "",
-			"Temperature": 0.3,
 			"model": "gpt-3.5-turbo",
 			"附带上下文个数": 0,
 			"API接口地址": "https://api.openai.com",
+			"SECRET_KEY": "",
 			"使用自定义promt": false,
 			"自定义promt": "",
-			"流式输出": false
+			"流式输出": false,
+			"Temperature": 0.3,
+			"top_p": 0.3,
+			"max_tokens": 128,
+			"frequency_penalty": 0
 		},
 		"argstype": {
+			"top_p": {
+				"type": "spin",
+				"min": 0,
+				"max": 1,
+				"step": 0.01
+			},
+			"frequency_penalty": {
+				"type": "spin",
+				"min": 0,
+				"max": 2,
+				"step": 0.05
+			},
+			"max_tokens": {
+				"type": "intspin",
+				"min": 1,
+				"max": 4096,
+				"step": 1
+			},
 			"流式输出": {
 				"type": "switch"
 			},
@@ -341,40 +389,45 @@
 	},
 	"jb7": {
 		"args": {
-			"路径": "",
-			"用户词典1(可选)": "",
-			"用户词典2(可选)": "",
-			"用户词典3(可选)": "",
+			"path": "",
+			"path_userdict1": "",
+			"path_userdict2": "",
+			"path_userdict3": "",
 			"备注": "用户词典选择JcUserdic文件夹"
 		},
 		"argstype": {
 			"备注": {
 				"type": "label"
 			},
-			"路径": {
+			"path": {
 				"type": "file",
-				"dir": true
+				"dir": true,
+				"name": "路径"
 			},
-			"用户词典1(可选)": {
+			"path_userdict1": {
 				"type": "file",
-				"dir": true
+				"dir": true,
+				"name": "用户词典1(可选)"
 			},
-			"用户词典2(可选)": {
+			"path_userdict2": {
 				"type": "file",
-				"dir": true
+				"dir": true,
+				"name": "用户词典2(可选)"
 			},
-			"用户词典3(可选)": {
+			"path_userdict3": {
 				"type": "file",
-				"dir": true
+				"dir": true,
+				"name": "用户词典3(可选)"
 			}
 		}
 	},
 	"kingsoft": {
 		"args": {
-			"路径": ""
+			"path": ""
 		},
 		"argstype": {
-			"路径": {
+			"path": {
+				"name": "路径",
 				"type": "file",
 				"dir": true
 			}
@@ -382,10 +435,11 @@
 	},
 	"dreye": {
 		"args": {
-			"路径": ""
+			"path": ""
 		},
 		"argstype": {
-			"路径": {
+			"path": {
+				"name": "路径",
 				"type": "file",
 				"dir": true
 			}
@@ -393,11 +447,12 @@
 	},
 	"rengong": {
 		"args": {
-			"json文件": ""
+			"jsonfile": []
 		},
 		"argstype": {
-			"json文件": {
+			"jsonfile": {
 				"type": "file",
+				"name": "json文件",
 				"dir": false,
 				"filter": "*.json",
 				"multi": true
@@ -406,12 +461,13 @@
 	},
 	"premt": {
 		"args": {
-			"sqlite文件": "",
+			"sqlitefile": "",
 			"仅使用激活的翻译": false
 		},
 		"argstype": {
-			"sqlite文件": {
+			"sqlitefile": {
 				"type": "file",
+				"name": "sqlite文件",
 				"dir": false,
 				"filter": "*.sqlite"
 			},
@@ -462,23 +518,48 @@
 	"gemini": {
 		"args": {
 			"注册网址": "https://ai.google.dev/tutorials/python_quickstart",
-			"api-key": "",
-			"使用自定义promt": false,
-			"自定义promt": ""
+			"注册网址2": "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models",
+			"SECRET_KEY": "",
+			"Temperature": 0.3,
+			"model": "gemini-1.5-flash",
+			"context": 0,
+			"use_custom_prompt": false,
+			"custom_prompt": ""
 		},
 		"argstype": {
+			"custom_prompt": {
+				"name": "自定义promt"
+			},
+			"use_custom_prompt": {
+				"type": "switch",
+				"name": "使用自定义promt"
+			},
+			"context": {
+				"type": "intspin",
+				"min": 0,
+				"max": 10,
+				"step": 1,
+				"name": "附带上下文个数"
+			},
 			"注册网址": {
 				"type": "label",
 				"islink": true
 			},
-			"使用自定义promt": {
-				"type": "switch"
+			"注册网址2": {
+				"type": "label",
+				"islink": true
+			},
+			"Temperature": {
+				"type": "spin",
+				"min": 0,
+				"max": 1,
+				"step": 0.1
 			}
 		}
 	},
 	"ort_sp": {
 		"args": {
-			"路径": "",
+			"path": "",
 			"最大生成长度": 128,
 			"最小生成长度": 1,
 			"柱搜索数": 8,
@@ -487,7 +568,8 @@
 			"重复惩罚": 1.7
 		},
 		"argstype": {
-			"路径": {
+			"path": {
+				"name": "路径",
 				"type": "file",
 				"dir": true
 			},
@@ -744,7 +826,8 @@
 			"使用说明": "llama.cpp/TGW/...",
 			"model": "gpt-3.5-turbo",
 			"附带上下文个数": 0,
-			"端口号": 5000,
+			"API接口地址": "http://127.0.0.1:5000/",
+			"SECRET_KEY": "",
 			"使用自定义promt": false,
 			"自定义promt": "",
 			"流式输出": false,
@@ -782,12 +865,6 @@
 				"type": "intspin",
 				"min": 0,
 				"max": 10,
-				"step": 1
-			},
-			"端口号": {
-				"type": "intspin",
-				"min": 0,
-				"max": 65536,
 				"step": 1
 			},
 			"使用说明": {

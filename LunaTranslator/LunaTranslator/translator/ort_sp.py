@@ -3,12 +3,13 @@ import ctypes
 import os
 import glob
 import platform
+import re
 
 
 class TS(basetrans):
     def inittranslator(self):
-        self.checkempty(["路径"])
-        path = self.config["路径"]
+        self.checkempty(["path"])
+        path = self.config["path"]
         if os.path.exists(path) == False:
             raise Exception("OrtMTLib translator path incorrect")
 
@@ -255,9 +256,24 @@ class TS(basetrans):
         return output_ids_py
 
     def translate(self, content):
-        input_ids_py = self.encode_as_ids(content)
-        output_ids_py = self.run_session(input_ids_py)
-        translated = self.decode_from_ids(output_ids_py)
+        delimiters = ['.','。','\n',':','：','?','？','!','！','…','「','」',]
+        raw_split = [i.strip() for i in re.split('(['+''.join(delimiters)+'])', content)]
+        content_split = [i for i in raw_split if i]
+        translated_list = []
+        i = 0
+        while i < len(content_split):
+            sentence = content_split[i]
+            while i + 1 < len(content_split):
+                if content_split[i+1] not in delimiters:
+                    break
+                i += 1
+                sentence += content_split[i]
+            input_ids_py = self.encode_as_ids(sentence)
+            output_ids_py = self.run_session(input_ids_py)
+            translated_sentence = self.decode_from_ids(output_ids_py)
+            translated_list.append(translated_sentence)
+            i += 1
+        translated = ''.join(translated_list)
         return translated
 
     def __del__(self):

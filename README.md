@@ -7,11 +7,11 @@
     <a href="https://hillya51.github.io/LunaTranslator_tutorial/download.html" target="_blank"><img src="https://img.shields.io/badge/download-blue"/></a>
 </p>
  
-## 简体中文 | [Русский язык](README_ru.md) | [English](README_en.md) | [Other Language Support](otherlang.md) 
+## 简体中文 | [Русский язык](README_ru.md) | [English](README_en.md) | [Other Language](otherlang.md) 
 
 > **一款galgame翻译器**
 
-## <a href="https://hillya51.github.io/LunaTranslator_tutorial/#/zh/" target="_blank">使用说明</a> <a href="https://www.bilibili.com/video/BV1G1421R7EH/" target="_blank">视频教程</a>
+## <a href="https://hillya51.github.io/LunaTranslator_tutorial/#/zh/" target="_blank">使用说明</a> <a href="https://space.bilibili.com/592120404/video" target="_blank">视频教程</a>
 
 欢迎觉得有帮助的朋友一起完善[说明文档](https://github.com/HIllya51/LunaTranslator_tutorial)。交流群[912525396](https://qm.qq.com/q/qE32v9NYBO)
 
@@ -60,7 +60,7 @@
 
 &emsp;&emsp;**日语分词及假名显示** 支持使用Mecab等分词和显示假名
 
-&emsp;&emsp;**查词** 支持使用MDICT、小学馆、灵格斯、EDICT、yomichan、有道、weblio、Goo、Moji、jisho等在线和离线词典进行单词查询
+&emsp;&emsp;**查词** 支持使用MDICT、小学馆、灵格斯、EDICT、有道、weblio、Goo、Moji、jisho等在线和离线词典进行单词查询
 
 &emsp;&emsp;**Anki** 支持使用一键添加单词到anki中
 

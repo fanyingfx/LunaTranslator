@@ -1,26 +1,57 @@
-from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QWidget, QPushButton, QHBoxLayout, QVBoxLayout, QLabel
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import Qt, pyqtSignal
-import qtawesome
+from qtsymbols import *
+import qtawesome, gobject
 from myutils.ocrutil import imagesolve
-from gui.usefulwidget import closeashidewindow
 from myutils.config import globalconfig, _TR
-from myutils.config import globalconfig
+from myutils.wrapper import Singleton_close
+from gui.usefulwidget import saveposwindow
 
 
-class showocrimage(closeashidewindow):
+class pixlabel(QLabel):
+    def __init__(self):
+        super().__init__()
+        self.pix = None
+
+    def paintEvent(self, a0) -> None:
+
+        if self.pix:
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+            painter.drawPixmap(
+                0,
+                0,
+                self.pix.scaled(
+                    self.size() * self.devicePixelRatioF(),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                ),
+            )
+
+        return super().paintEvent(a0)
+
+    def setpix(self, pix):
+        pix.setDevicePixelRatio(self.devicePixelRatioF())
+        self.pix = pix
+        self.update()
+
+
+@Singleton_close
+class showocrimage(saveposwindow):
     setimage = pyqtSignal(list)
 
-    def __init__(self, parent):
+    def closeEvent(self, e):
+        gobject.baseobject.showocrimage = None
+        super().closeEvent(e)
+
+    def __init__(self, parent, cached):
         self.img1 = None
         self.originimage = None
-        super(showocrimage, self).__init__(parent, globalconfig, "showocrgeo")
+        super().__init__(parent, poslist=globalconfig["showocrgeo"])
         self.setWindowIcon(qtawesome.icon("fa.picture-o"))
         self.setWindowTitle(_TR("查看处理效果"))
-        self.originlabel = QLabel(self)
+        self.originlabel = pixlabel()
         qw = QWidget()
-        self.solvedlabel = QLabel(self)
+        self.solvedlabel = pixlabel()
         self.lay2 = QHBoxLayout()
         button = QPushButton(
             icon=qtawesome.icon("fa.rotate-right", color=globalconfig["buttoncolor"])
@@ -35,6 +66,8 @@ class showocrimage(closeashidewindow):
         self.layout1.addWidget(button)
         self.layout1.addWidget(self.solvedlabel)
         self.setimage.connect(self.setimagefunction)
+        if cached:
+            self.setimagefunction(cached)
 
     def retest(self):
         if self.originimage is None:
@@ -42,29 +75,10 @@ class showocrimage(closeashidewindow):
         img = imagesolve(self.originimage)
         self.setimagefunction([self.originimage, img])
 
-    def showimg(self):
-
-        self.originlabel.setPixmap(
-            self.img1.scaled(
-                self.originlabel.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
-            )
-        )
-        self.solvedlabel.setPixmap(
-            self.img2.scaled(
-                self.solvedlabel.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
-            )
-        )
-
-    def resizeEvent(self, a0) -> None:
-        if self.img1 is not None:
-            self.showimg()
-        return super().resizeEvent(a0)
-
     def setimagefunction(self, image):
         originimage, solved = image
         self.originimage = originimage
         self.img1 = QPixmap.fromImage(originimage)
         self.img2 = QPixmap.fromImage(solved)
-        self.img1.setDevicePixelRatio(self.devicePixelRatioF())
-        self.img2.setDevicePixelRatio(self.devicePixelRatioF())
-        self.showimg()
+        self.originlabel.setpix(self.img1)
+        self.solvedlabel.setpix(self.img2)

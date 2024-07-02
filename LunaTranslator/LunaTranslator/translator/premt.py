@@ -11,8 +11,8 @@ import winsharedutils
 class TS(basetrans):
     def unsafegetcurrentgameconfig(self):
         try:
-            _path = gobject.baseobject.textsource.pname
-            _path = savehook_new_data[_path]["gamesqlitefile"]
+            gameuid = gobject.baseobject.textsource.gameuid
+            _path = savehook_new_data[gameuid]["gamesqlitefile"]
             return _path
         except:
             return None
@@ -30,12 +30,12 @@ class TS(basetrans):
     def inittranslator(self):
         self.paths = (None, None)
         self.checkfilechanged(
-            self.unsafegetcurrentgameconfig(), self.config["sqlite文件"]
+            self.unsafegetcurrentgameconfig(), self.config["sqlitefile"]
         )
 
     def translate(self, content):
         self.checkfilechanged(
-            self.unsafegetcurrentgameconfig(), self.config["sqlite文件"]
+            self.unsafegetcurrentgameconfig(), self.config["sqlitefile"]
         )
         if globalconfig["premtsimiuse"]:
             maxsim = 0

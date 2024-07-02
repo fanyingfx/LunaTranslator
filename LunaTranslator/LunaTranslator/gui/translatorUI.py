@@ -1,32 +1,32 @@
-import time
-import functools
-import threading
-import os, sys
-import windows, importlib
+from qtsymbols import *
+import time, functools, threading, os, sys, importlib, shutil
 from traceback import print_exc
-from PyQt5.QtCore import Qt, pyqtSignal
-import qtawesome
-from PyQt5.QtCore import pyqtSignal, Qt, QSize
-from PyQt5.QtGui import QCursor
-from PyQt5.QtWidgets import QLabel, QPushButton, QSystemTrayIcon
-import gobject
+import windows, qtawesome, gobject, winsharedutils
 from myutils.wrapper import threader, trypass
-import winsharedutils
-from myutils.config import globalconfig, saveallconfig, _TR, static_data
+from myutils.config import (
+    globalconfig,
+    saveallconfig,
+    _TR,
+    static_data,
+    findgameuidofpath,
+    savehook_new_list,
+)
 from myutils.subproc import endsubprocs
 from myutils.ocrutil import ocr_run, imageCut
-from myutils.utils import loadpostsettingwindowmethod, getimageformat
-from myutils.hwnd import mouseselectwindow, grabwindow, getExeIcon
-from gui.dialog_savedgame import dialog_savedgame_new
+from myutils.utils import loadpostsettingwindowmethod, str2rgba
+from myutils.hwnd import mouseselectwindow, grabwindow, getExeIcon, getpidexe
+from gui.setting_about import doupdate
 from gui.dialog_memory import dialog_memory
 from gui.textbrowser import Textbrowser
-from gui.rangeselect import moveresizegame, rangeselct_function
-from gui.usefulwidget import resizableframeless, isinrect
-from gui.dialog_savedgame import browserdialog
-from winsharedutils import showintab
+from gui.rangeselect import rangeselct_function
+from gui.usefulwidget import resizableframeless, isinrect, getQMessageBox
+from gui.edittext import edittrans
+from gui.dialog_savedgame import browserdialog, dialog_savedgame_integrated
 
 
 class QUnFrameWindow(resizableframeless):
+    displayglobaltooltip = pyqtSignal(str)
+    displaymessagebox = pyqtSignal(str, str)
     displayres = pyqtSignal(dict)
     displayraw1 = pyqtSignal(dict)
     displaystatus = pyqtSignal(str, str, bool, bool)
@@ -42,25 +42,12 @@ class QUnFrameWindow(resizableframeless):
     refreshtooliconsignal = pyqtSignal()
     hidesignal = pyqtSignal()
     muteprocessignal = pyqtSignal()
-    entersignal = pyqtSignal()
     ocr_once_signal = pyqtSignal()
 
     def hookfollowsignalsolve(self, code, other):
         if self._move_drag:
             return
-        if code == 3:
-            self.show_()
-            try:
-                _h = windows.GetForegroundWindow()
-                _fpid = windows.GetWindowThreadProcessId(_h)
-                _hpid = windows.GetWindowThreadProcessId(other[0])
-                if _fpid != _hpid:
-                    windows.SetForegroundWindow(other[0])
-            except:
-                pass
-        elif code == 4:
-            self.hide_()
-        elif code == 5:
+        if code == 5:
             # print(self.pos())
             # self.move(self.pos() + self._endPos)z
             try:
@@ -74,8 +61,9 @@ class QUnFrameWindow(resizableframeless):
             name = kwargs.get("name", "")
             color = kwargs.get("color")
             res = kwargs.get("res")
-            onlytrans = kwargs.get("onlytrans")
+            onlytrans = kwargs.get("onlytrans")  # 仅翻译，不显示
             iter_context = kwargs.get("iter_context", None)
+            clear = kwargs.get("clear", False)
 
             if iter_context:
                 iter_res_status, iter_context_class = iter_context
@@ -87,7 +75,6 @@ class QUnFrameWindow(resizableframeless):
 
             if onlytrans:
                 return
-            clear = name == ""
             if len(res) > globalconfig["maxoriginlength"]:
                 _res = res[: globalconfig["maxoriginlength"]] + "……"
             else:
@@ -108,7 +95,7 @@ class QUnFrameWindow(resizableframeless):
         except:
             print_exc()
 
-    def showraw(self, kwargs):  # hira,res,color,onlytrans):
+    def showraw(self, kwargs):  # res,color,onlytrans):
         text = kwargs.get("text")
         color = kwargs.get("color")
         onlytrans = kwargs.get("onlytrans")
@@ -122,17 +109,11 @@ class QUnFrameWindow(resizableframeless):
         else:
             _res = text
         if globalconfig["isshowrawtext"]:
-            hira = (
-                globalconfig["isshowhira"]
-                or globalconfig["usesearchword"]
-                or globalconfig["usecopyword"]
-                or globalconfig["show_fenci"]
-            )
-            self.showline(clear=clear, text=_res, hira=hira, color=color)
+            self.showline(clear=clear, text=_res, isshowrawtext=True, color=color)
         else:
             self.showline(clear=clear)
 
-        gobject.baseobject.edittextui.getnewsentencesignal.emit(text)
+        gobject.baseobject.maybesetedittext(text)
 
     def showstatus(self, res, color, clear, origin):
         self.showline(clear=clear, text=res, color=color, origin=origin)
@@ -166,8 +147,8 @@ class QUnFrameWindow(resizableframeless):
         clear = kwargs.get("clear", True)
         origin = kwargs.get("origin", True)
         text = kwargs.get("text", None)
-        color = kwargs.get("color", None)
-        hira = kwargs.get("hira", False)
+        color = kwargs.get("color", "black")
+        isshowrawtext = kwargs.get("isshowrawtext", False)
         iter_context = kwargs.get("iter_context", None)
 
         if clear:
@@ -175,91 +156,38 @@ class QUnFrameWindow(resizableframeless):
         if text is None:
             return
         text = self.cleartext(text)
-        if hira:
-            hira = self.parsehira(text)
-        else:
-            hira = []
-        self.translate_text.setnextfont(origin)
 
-        if globalconfig["showatcenter"]:
-            self.translate_text.setAlignment(Qt.AlignCenter)
-        else:
-            self.translate_text.setAlignment(Qt.AlignLeft)
+        atcenter = globalconfig["showatcenter"]
 
         if iter_context:
-            iter_res_status, iter_context_class = iter_context
-            if iter_res_status == 3:
-                self.translate_text.append(" ", hira, origin)
-                self.saveiterclasspointer[iter_context_class] = {
-                    "currtext": "",
-                    "curr": self.translate_text.getcurrpointer(),
-                    "start": self.translate_text.getcurrpointer(),
-                }
-            else:
-                currbefore = self.saveiterclasspointer[iter_context_class]["curr"]
-                currlen = len(self.saveiterclasspointer[iter_context_class]["currtext"])
-                if len(text) < currlen:
-                    self.translate_text.deletebetween(
-                        self.saveiterclasspointer[iter_context_class]["start"]
-                        + len(text),
-                        self.saveiterclasspointer[iter_context_class]["curr"],
-                    )
-                else:
-                    newtext = text[currlen:]
-                    self.translate_text.insertatpointer(
-                        self.saveiterclasspointer[iter_context_class]["start"]
-                        + currlen,
-                        newtext,
-                    )
-
-                self.saveiterclasspointer[iter_context_class]["currtext"] = text
-                currcurrent = self.translate_text.getcurrpointer()
-                self.saveiterclasspointer[iter_context_class]["curr"] = currcurrent
-                currchange = currcurrent - currbefore
-                for klass in self.saveiterclasspointer:
-                    if klass == iter_context_class:
-                        continue
-                    if self.saveiterclasspointer[klass]["curr"] > currbefore:
-                        self.saveiterclasspointer[klass]["curr"] += currchange
-                        self.saveiterclasspointer[klass]["start"] += currchange
-
-            self.translate_text.showyinyingtext2(
-                color,
-                iter_context_class,
-                self.saveiterclasspointer[iter_context_class]["start"],
-                text,
+            _, iter_context_class = iter_context
+            self.translate_text.iter_append(
+                iter_context_class, origin, atcenter, text, color
             )
-
         else:
+            hira = []
+            isshowhira = isshow_fenci = isfenciclick = False
+            if isshowrawtext:
+                isshowhira = globalconfig["isshowhira"]
+                isshow_fenci = globalconfig["show_fenci"]
+                isfenciclick = (
+                    globalconfig["usesearchword"] or globalconfig["usecopyword"]
+                )
+                needhira = isshow_fenci or isshowhira or isfenciclick
+                if needhira:
+                    hira = self.parsehira(text)
+
             self.translate_text.append(
-                text, hira if globalconfig["isshowhira"] else [], color
+                origin,
+                atcenter,
+                text,
+                hira,
+                (isshowhira, isshow_fenci, isfenciclick),
+                color,
             )
-
-        if hira:
-
-            def callback(word, append):
-                if globalconfig["usewordorigin"] == False:
-                    word = word["orig"]
-                else:
-                    word = word.get("origorig", word["orig"])
-
-                if globalconfig["usecopyword"]:
-                    if append:
-                        winsharedutils.clipboard_set(
-                            winsharedutils.clipboard_get() + word
-                        )
-                    else:
-                        winsharedutils.clipboard_set(word)
-                if globalconfig["usesearchword"]:
-                    gobject.baseobject.searchwordW.getnewsentencesignal.emit(
-                        word, append
-                    )
-
-            self.translate_text.addsearchwordmask(hira, text, callback)
-
         if globalconfig["autodisappear"]:
-            flag = (self.showintab and self.isMinimized()) or (
-                not self.showintab and self.isHidden()
+            flag = (globalconfig["showintab"] and self.isMinimized()) or (
+                not globalconfig["showintab"] and self.isHidden()
             )
 
             if flag:
@@ -267,6 +195,7 @@ class QUnFrameWindow(resizableframeless):
             self.lastrefreshtime = time.time()
             self.autohidestart = True
 
+    @threader
     def autohidedelaythread(self):
         while True:
             if globalconfig["autodisappear"] and self.autohidestart:
@@ -282,8 +211,8 @@ class QUnFrameWindow(resizableframeless):
         if self._move_drag:
             return
 
-        flag = (self.showintab and self.isMinimized()) or (
-            not self.showintab and self.isHidden()
+        flag = (globalconfig["showintab"] and self.isMinimized()) or (
+            not globalconfig["showintab"] and self.isHidden()
         )
 
         if flag:
@@ -297,7 +226,6 @@ class QUnFrameWindow(resizableframeless):
             self.showhideui()
 
     def refreshtoolicon(self):
-
         iconstate = {
             "fullscreen": self.isletgamefullscreened,
             "muteprocess": self.processismuteed,
@@ -308,20 +236,22 @@ class QUnFrameWindow(resizableframeless):
         colorstate = {
             "automodebutton": globalconfig["autorun"],
             "showraw": globalconfig["isshowrawtext"],
-            "mousetransbutton": self.mousetransparent,
-            "backtransbutton": self.backtransparent,
+            "mousetransbutton": globalconfig["mousetransparent"],
+            "backtransbutton": globalconfig["backtransparent"],
             "locktoolsbutton": globalconfig["locktools"],
+            "selectable": globalconfig["selectable"],
             "hideocrrange": self.showhidestate,
             "bindwindow": self.isbindedwindow,
             "keepontop": globalconfig["keepontop"],
         }
-        onstatecolor = "#FF69B4"
 
         self._TitleLabel.setFixedHeight(int(globalconfig["buttonsize"] * 1.5))
         for name in self.buttons:
             if name in colorstate:
                 color = (
-                    onstatecolor if colorstate[name] else globalconfig["buttoncolor"]
+                    globalconfig["buttoncolor_1"]
+                    if colorstate[name]
+                    else globalconfig["buttoncolor"]
                 )
             else:
                 color = globalconfig["buttoncolor"]
@@ -346,6 +276,7 @@ class QUnFrameWindow(resizableframeless):
         self.setMinimumHeight(int(globalconfig["buttonsize"] * 1.5 + 10))
         self.setMinimumWidth(globalconfig["buttonsize"] * 2)
         self.set_color_transparency()
+        self.seteffect()
         self.adjustbuttons()
 
     def ocr_once_function(self):
@@ -355,7 +286,7 @@ class QUnFrameWindow(resizableframeless):
             text = ocr_run(img)
             gobject.baseobject.textgetmethod(text, False)
 
-        rangeselct_function(self, ocroncefunction, False, False)
+        rangeselct_function(ocroncefunction, False, False)
 
     @threader
     def simulate_key_enter(self):
@@ -365,6 +296,16 @@ class QUnFrameWindow(resizableframeless):
             time.sleep(0.001)
             windows.keybd_event(13, 0, 0, 0)
         windows.keybd_event(13, 0, windows.KEYEVENTF_KEYUP, 0)
+
+    def btnsetontopfunction(self):
+        try:
+
+            gobject.baseobject.settin_ui.keepontopbutton.click()
+        except:
+            globalconfig["keepontop"] = not globalconfig["keepontop"]
+
+            self.refreshtoolicon()
+            self.setontopthread()
 
     def addbuttons(self):
         def simulate_key_ctrl():
@@ -384,7 +325,8 @@ class QUnFrameWindow(resizableframeless):
                 "copy",
                 lambda: winsharedutils.clipboard_set(gobject.baseobject.currenttext),
             ),
-            ("edit", lambda: gobject.baseobject.edittextui.showsignal.emit()),
+            ("edit", gobject.baseobject.createedittextui),
+            ("edittrans", lambda: edittrans(gobject.baseobject.commonstylebase)),
             ("showraw", self.changeshowhideraw),
             ("history", lambda: gobject.baseobject.transhis.showsignal.emit()),
             (
@@ -403,10 +345,13 @@ class QUnFrameWindow(resizableframeless):
             ("mousetransbutton", lambda: self.changemousetransparentstate(0)),
             ("backtransbutton", lambda: self.changemousetransparentstate(1)),
             ("locktoolsbutton", self.changetoolslockstate),
-            ("gamepad_new", lambda: dialog_savedgame_new(gobject.baseobject.settin_ui)),
+            (
+                "gamepad_new",
+                lambda: dialog_savedgame_integrated(gobject.baseobject.commonstylebase),
+            ),
             (
                 "selectgame",
-                lambda: gobject.baseobject.AttachProcessDialog.showsignal.emit(),
+                lambda: gobject.baseobject.createattachprocess(),
             ),
             (
                 "selecttext",
@@ -415,32 +360,17 @@ class QUnFrameWindow(resizableframeless):
             ("selectocrrange", lambda: self.clickRange(False)),
             ("hideocrrange", self.showhideocrrange),
             ("bindwindow", self.bindcropwindow_signal.emit),
-            (
-                "resize",
-                lambda: (
-                    moveresizegame(self, gobject.baseobject.textsource.hwnd)
-                    if gobject.baseobject.textsource.hwnd
-                    else 0
-                ),
-            ),
+            ("searchwordW", lambda: gobject.baseobject.searchwordW.showsignal.emit()),
             ("fullscreen", self._fullsgame),
-            ("grabwindow", lambda: grabwindow(getimageformat())),
+            ("grabwindow", grabwindow),
             ("muteprocess", self.muteprocessfuntion),
             (
                 "memory",
                 lambda: dialog_memory(
-                    gobject.baseobject.settin_ui, gobject.baseobject.currentmd5
+                    gobject.baseobject.commonstylebase, gobject.baseobject.currentmd5
                 ),
             ),
-            (
-                "keepontop",
-                lambda: globalconfig.__setitem__(
-                    "keepontop", not globalconfig["keepontop"]
-                )
-                is None
-                and self.refreshtoolicon() is None
-                and self.setontopthread(),
-            ),
+            ("keepontop", self.btnsetontopfunction),
             (
                 "simulate_key_ctrl",
                 lambda: threading.Thread(target=simulate_key_ctrl).start(),
@@ -458,8 +388,8 @@ class QUnFrameWindow(resizableframeless):
             (
                 "open_relative_link",
                 lambda: browserdialog(
-                    gobject.baseobject.settin_ui,
-                    trypass(lambda: gobject.baseobject.textsource.pname)(),
+                    gobject.baseobject.commonstylebase,
+                    trypass(lambda: gobject.baseobject.textsource.gameuid)(),
                 ),
             ),
             (
@@ -469,6 +399,7 @@ class QUnFrameWindow(resizableframeless):
             ("ocr_once", self.ocr_once_signal.emit),
             ("minmize", self.hide_),
             ("quit", self.close),
+            ("selectable", self.setselectable),
         )
         _type = {"quit": 2}
 
@@ -488,31 +419,23 @@ class QUnFrameWindow(resizableframeless):
             )
 
     def hide_(self):
-        if self.showintab:
+        if globalconfig["showintab"]:
             windows.ShowWindow(int(self.winId()), windows.SW_SHOWMINIMIZED)
         else:
             self.hide()
 
     def show_(self):
-        if self.showintab:
+        if globalconfig["showintab"]:
             windows.ShowWindow(int(self.winId()), windows.SW_SHOWNOACTIVATE)
         else:
             self.show()
         windows.SetForegroundWindow(int(self.winId()))
 
-    def showEvent(self, a0) -> None:
-        if self.isfirstshow:
-            self.showline(clear=True, text=_TR("欢迎使用"), origin=False)
+    def aftershowdosomething(self):
 
-            self.tray.activated.connect(self.leftclicktray)
-
-            self.tray.show()
-            windows.SetForegroundWindow(int(self.winId()))
-            self.isfirstshow = False
-            self.setontopthread()
-            self.refreshtoolicon()
-
-        return super().showEvent(a0)
+        windows.SetForegroundWindow(int(self.winId()))
+        self.refreshtoolicon()
+        self.setontopthread()
 
     def canceltop(self):
         windows.SetWindowPos(
@@ -562,55 +485,60 @@ class QUnFrameWindow(resizableframeless):
             windows.SWP_NOACTIVATE | windows.SWP_NOSIZE | windows.SWP_NOMOVE,
         )
 
+    @threader
     def setontopthread(self):
-        def _():
-            self.settop()
-            while globalconfig["keepontop"]:
+        self.settop()
+        while globalconfig["keepontop"]:
 
-                try:
-                    hwnd = windows.GetForegroundWindow()
-                    pid = windows.GetWindowThreadProcessId(hwnd)
-                    if pid == os.getpid():
-                        pass
-                    elif globalconfig["focusnotop"] and self.thistimenotsetop:
-                        pass
-                    else:
-                        self.settop()
-                except:
-                    print_exc()
-                time.sleep(0.5)
-            self.canceltop()
+            try:
+                hwnd = windows.GetForegroundWindow()
+                pid = windows.GetWindowThreadProcessId(hwnd)
+                if pid == os.getpid():
+                    pass
+                elif globalconfig["focusnotop"] and self.thistimenotsetop:
+                    pass
+                else:
+                    self.settop()
+            except:
+                print_exc()
+            time.sleep(0.5)
+        self.canceltop()
 
-        threading.Thread(target=_).start()
+    def seteffect(self):
+        if globalconfig["WindowEffect"] == 0:
+            winsharedutils.clearEffect(int(self.winId()))
+        elif globalconfig["WindowEffect"] == 1:
+            winsharedutils.setAcrylicEffect(int(self.winId()))
+        elif globalconfig["WindowEffect"] == 2:
+            winsharedutils.setAeroEffect(int(self.winId()))
 
-    def __init__(self):
-
-        super(QUnFrameWindow, self).__init__(
-            None,
-            flags=Qt.FramelessWindowHint | Qt.WindowMinimizeButtonHint,
-            dic=globalconfig,
-            key="transuigeo",
-        )  # 设置为顶级窗口，无边框
-        icon = getExeIcon(sys.argv[0])  #'./LunaTranslator.exe')# QIcon()
-        # icon.addPixmap(QPixmap('./files/luna.png'), QIcon.Normal, QIcon.On)
-        self.setWindowIcon(icon)
-        self.tray = QSystemTrayIcon()
-        self.tray.setIcon(icon)
-        showintab(int(self.winId()), globalconfig["showintab"])
-        self.isfirstshow = True
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setAttribute(Qt.WA_ShowWithoutActivating, True)
-        self.showintab = globalconfig["showintab"]
-        self.setWindowTitle("LunaTranslator")
-        self.hidesignal.connect(self.hide_)
-        self.lastrefreshtime = time.time()
+    def initvalues(self):
+        self.enter_sig = 0
+        self.fullscreenmanager_busy = False
+        self.isletgamefullscreened = False
+        self.fullscreenmanager = None
+        self.fullscreenmethod = None
+        self._isTracking = False
+        self.showhidestate = False
         self.autohidestart = False
-        threading.Thread(target=self.autohidedelaythread).start()
-        self.muteprocessignal.connect(self.muteprocessfuntion)
-        self.toolbarhidedelaysignal.connect(self.toolbarhidedelay)
+        self.processismuteed = False
+        self.thistimenotsetop = False
+        self.isbindedwindow = False
+        self.buttons = {}
+        self.showbuttons = []
+        self.stylebuttons = {}
 
+    def displayglobaltooltip_f(self, string):
+        QToolTip.showText(QCursor.pos(), string, self)
+
+    def displaymessagebox_f(self, string1, string2):
+        getQMessageBox(self, string1, string2)
+
+    def initsignals(self):
+        self.hidesignal.connect(self.hide_)
+        self.displayglobaltooltip.connect(self.displayglobaltooltip_f)
+        self.displaymessagebox.connect(self.displaymessagebox_f)
         self.ocr_once_signal.connect(self.ocr_once_function)
-        self.entersignal.connect(self.enterfunction)
         self.displaystatus.connect(self.showstatus)
         self.showhideuisignal.connect(self.showhideui)
         self.hookfollowsignal.connect(self.hookfollowsignalsolve)
@@ -618,7 +546,7 @@ class QUnFrameWindow(resizableframeless):
         self.displayraw1.connect(self.showraw)
         self.refreshtooliconsignal.connect(self.refreshtoolicon)
         self.showsavegame_signal.connect(
-            lambda: dialog_savedgame_new(gobject.baseobject.settin_ui)
+            lambda: dialog_savedgame_integrated(gobject.baseobject.commonstylebase)
         )
         self.clickRange_signal.connect(self.clickRange)
         self.showhide_signal.connect(self.showhideocrrange)
@@ -628,28 +556,57 @@ class QUnFrameWindow(resizableframeless):
         self.quitf_signal.connect(self.close)
         self.fullsgame_signal.connect(self._fullsgame)
 
-        self.fullscreenmanager_busy = False
-        self.isletgamefullscreened = False
-        self.fullscreenmanager = None
-        self.fullscreenmethod = None
-        self._isTracking = False
-        self.isontop = True
+        self.muteprocessignal.connect(self.muteprocessfuntion)
+        self.toolbarhidedelaysignal.connect(self.toolbarhidedelay)
+
+    def __init__(self):
+
+        super(QUnFrameWindow, self).__init__(
+            None,
+            flags=Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowMinimizeButtonHint,
+            poslist=globalconfig["transuigeo"],
+        )  # 设置为顶级窗口，无边框
+        icon = getExeIcon(sys.argv[0])  #'./LunaTranslator.exe')# QIcon()
+        # icon.addPixmap(QPixmap('./files/luna.png'), QIcon.Normal, QIcon.On)
+        self.setWindowIcon(icon)
+        self.firstshow = True
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+        self.setWindowTitle("LunaTranslator")
+        self.initvalues()
+        self.initsignals()
         self._TitleLabel = QLabel(self)
-        self._TitleLabel.move(0, 0)
-        self.showhidestate = False
-        self.processismuteed = False
-        self.mousetransparent = False
-        self.backtransparent = False
-        self.isbindedwindow = False
-        self.buttons = {}
-        self.showbuttons = []
-        self.stylebuttons = {}
-        self.saveiterclasspointer = {}
+        self._TitleLabel.setMouseTracking(True)
         self.addbuttons()
         self.translate_text = Textbrowser(self)
-
         self.translate_text.contentsChanged.connect(self.textAreaChanged)
-        self.thistimenotsetop = False
+        self.translate_text.textbrowser.setselectable(globalconfig["selectable"])
+        t = QTimer(self)
+        t.setInterval(100)
+        self._isentered = False
+        t.timeout.connect(self.__betterenterevent)
+        t.start()
+
+    def showEvent(self, e):
+        if not self.firstshow:
+            self.enterfunction()
+            return
+        self.firstshow = False
+        self.mousetransparent_check()
+
+        # 有个莫名其妙的加载时间
+        self.enterfunction(2 + globalconfig["disappear_delay_tool"])
+        self.autohidedelaythread()
+
+    def setselectable(self):
+
+        try:
+            gobject.baseobject.settin_ui.selectable_btn.click()
+        except:
+            globalconfig["selectable"] = not globalconfig["selectable"]
+            self.translate_text.textbrowser.setselectable(globalconfig["selectable"])
+            self.refreshtoolicon()
 
     def createborderradiusstring(self, r, merge, top=False):
         if merge:
@@ -677,7 +634,7 @@ class QUnFrameWindow(resizableframeless):
             return "border-radius:%spx" % r
 
     def set_color_transparency(self):
-
+        rate = int(globalconfig["WindowEffect"] == 0)
         use_r1 = min(
             self.translate_text.height() // 2,
             self.translate_text.width() // 2,
@@ -689,33 +646,32 @@ class QUnFrameWindow(resizableframeless):
             globalconfig["yuanjiao_r"],
         )
         topr = self.createborderradiusstring(
-            use_r1,
+            rate * use_r1,
             globalconfig["yuanjiao_merge"] and self._TitleLabel.isVisible(),
             False,
         )
-        bottomr2 = self.createborderradiusstring(use_r2, False)
+        bottomr3 = self.createborderradiusstring(use_r2, False)
         bottomr = self.createborderradiusstring(
-            use_r2, globalconfig["yuanjiao_merge"], True
+            rate * use_r2, globalconfig["yuanjiao_merge"], True
         )
 
         self.translate_text.setStyleSheet(
-            "border-width: 0;%s;background-color: rgba(%s, %s, %s, %s)"
+            "Textbrowser{border-width: 0;%s;background-color: %s}"
             % (
                 topr,
-                int(globalconfig["backcolor"][1:3], 16),
-                int(globalconfig["backcolor"][3:5], 16),
-                int(globalconfig["backcolor"][5:7], 16),
-                globalconfig["transparent"] * (not self.backtransparent) / 100,
+                str2rgba(
+                    globalconfig["backcolor"],
+                    globalconfig["transparent"] * (not globalconfig["backtransparent"]),
+                ),
             )
         )
         self._TitleLabel.setStyleSheet(
-            "border-width: 0;%s;background-color: rgba(%s, %s, %s, %s)"
+            "border-width: 0;%s;background-color: %s"
             % (
                 bottomr,
-                int(globalconfig["backcolor"][1:3], 16),
-                int(globalconfig["backcolor"][3:5], 16),
-                int(globalconfig["backcolor"][5:7], 16),
-                globalconfig["transparent"] / 200,
+                str2rgba(
+                    globalconfig["backcolor_tool"], globalconfig["transparent_tool"]
+                ),
             )
         )
         for _type in self.stylebuttons:
@@ -731,13 +687,14 @@ class QUnFrameWindow(resizableframeless):
                 border: 0px;%s;
                 font: 100 10pt;
             }
+            QPushButton:focus {outline: 0px;}
             """ % (
-                bottomr2,
+                bottomr3,
                 (
                     globalconfig["button_color_normal"],
                     globalconfig["button_color_close"],
                 )[_type - 1],
-                bottomr2,
+                bottomr3,
             )
 
             for btn in self.stylebuttons[_type]:
@@ -791,64 +748,53 @@ class QUnFrameWindow(resizableframeless):
             print_exc()
         self.fullscreenmanager_busy = False
 
-    def changemousetransparentstate(self, idx):
-        if idx == 0:
-            self.mousetransparent = not self.mousetransparent
+    @threader
+    def mousetransparent_check(self):
+        hwnd = int(int(self.winId()))
+        while globalconfig["mousetransparent"]:
+            cursor_pos = self.mapFromGlobal(QCursor.pos())
+            if isinrect(
+                cursor_pos,
+                [
+                    self._TitleLabel.x(),
+                    self._TitleLabel.x() + self._TitleLabel.width(),
+                    self._TitleLabel.y(),
+                    self._TitleLabel.y() + self._TitleLabel.height(),
+                ],
+            ):
 
-            def _checkplace():
-                hwnd = int(int(self.winId()))
-                while self.mousetransparent:
-                    cursor_pos = self.mapFromGlobal(QCursor.pos())
-
-                    if isinrect(
-                        cursor_pos,
-                        [
-                            self._TitleLabel.x(),
-                            self._TitleLabel.x() + self._TitleLabel.width(),
-                            self._TitleLabel.y(),
-                            self._TitleLabel.y() + self._TitleLabel.height(),
-                        ],
-                    ):
-
-                        windows.SetWindowLong(
-                            int(self.winId()),
-                            windows.GWL_EXSTYLE,
-                            windows.GetWindowLong(hwnd, windows.GWL_EXSTYLE)
-                            & ~windows.WS_EX_TRANSPARENT,
-                        )
-                    else:
-                        windows.SetWindowLong(
-                            int(self.winId()),
-                            windows.GWL_EXSTYLE,
-                            windows.GetWindowLong(hwnd, windows.GWL_EXSTYLE)
-                            | windows.WS_EX_TRANSPARENT,
-                        )
-                    if isinrect(
-                        cursor_pos,
-                        [
-                            self._TitleLabel.x(),
-                            self._TitleLabel.x() + self._TitleLabel.width(),
-                            self._TitleLabel.y(),
-                            self._TitleLabel.y()
-                            + self._TitleLabel.height()
-                            + self._padding,
-                        ],
-                    ):
-                        self.entersignal.emit()
-                    time.sleep(0.1)
-                # 结束时取消穿透(可能以快捷键终止)
                 windows.SetWindowLong(
-                    int(self.winId()),
+                    hwnd,
                     windows.GWL_EXSTYLE,
                     windows.GetWindowLong(hwnd, windows.GWL_EXSTYLE)
                     & ~windows.WS_EX_TRANSPARENT,
                 )
+            else:
+                windows.SetWindowLong(
+                    hwnd,
+                    windows.GWL_EXSTYLE,
+                    windows.GetWindowLong(hwnd, windows.GWL_EXSTYLE)
+                    | windows.WS_EX_TRANSPARENT,
+                )
+            time.sleep(0.1)
+        # 结束时取消穿透(可能以快捷键终止)
+        windows.SetWindowLong(
+            hwnd,
+            windows.GWL_EXSTYLE,
+            windows.GetWindowLong(hwnd, windows.GWL_EXSTYLE)
+            & ~windows.WS_EX_TRANSPARENT,
+        )
 
-            if self.mousetransparent:
-                # globalconfig['locktools']=True #锁定，否则无法恢复。
-                threading.Thread(target=_checkplace).start()
+    def changemousetransparentstate(self, idx):
+        if idx == 0:
+
+            try:
+                gobject.baseobject.settin_ui.mousetransbutton.click()
+            except:
+                globalconfig["mousetransparent"] = not globalconfig["mousetransparent"]
+                self.mousetransparent_check()
         elif idx == 1:
-            self.backtransparent = not self.backtransparent
+            globalconfig["backtransparent"] = not globalconfig["backtransparent"]
             self.set_color_transparency()
         self.refreshtoolicon()
 
@@ -865,43 +811,49 @@ class QUnFrameWindow(resizableframeless):
         gobject.baseobject.textsource.hwnd = hwnd if pid != _pid else None
         if not globalconfig["sourcestatus2"]["texthook"]["use"]:
             gobject.baseobject.textsource.pids = [pid] if pid != _pid else None
+            gameuid = findgameuidofpath(getpidexe(pid), savehook_new_list)
+            if gameuid:
+                gobject.baseobject.textsource.gameuid = gameuid
         self.isbindedwindow = pid != _pid
         self.refreshtoolicon()
 
     def changeshowhideraw(self):
-        gobject.baseobject.settin_ui.show_original_switch.click()
+        try:
+            gobject.baseobject.settin_ui.show_original_switch.click()
+        except:
+            globalconfig["isshowrawtext"] = not globalconfig["isshowrawtext"]
+            self.refreshtoolicon()
 
     def changeTranslateMode(self):
         globalconfig["autorun"] = not globalconfig["autorun"]
         self.refreshtoolicon()
 
     def changetoolslockstate(self):
-        globalconfig["locktools"] = not globalconfig["locktools"]
-        self.refreshtoolicon()
+        try:
+            gobject.baseobject.settin_ui.locktoolsbutton.click()
+        except:
+            globalconfig["locktools"] = not globalconfig["locktools"]
+            self.refreshtoolicon()
 
-    def textAreaChanged(self, w, h):
+    def textAreaChanged(self, size: QSize):
 
-        if globalconfig["fixedheight"]:
-            return
         if self.translate_text.cleared:
             return
-        newHeight = h
-        width = self.width()
-        self.resize(
-            width,
-            int(
-                max(0, -globalconfig["extra_space"])
-                + newHeight
-                + globalconfig["buttonsize"] * 1.5
-            ),
+        if not globalconfig["adaptive_height"]:
+            return
+        newHeight = (
+            size.height()
+            + self.translate_text._padding
+            + int(globalconfig["buttonsize"] * 1.5)
         )
+        self.resize(self.width(), newHeight)
 
     def clickRange(self, auto):
         if globalconfig["sourcestatus2"]["ocr"]["use"] == False:
             return
         self.showhidestate = False
 
-        rangeselct_function(self, self.afterrange, auto, auto)
+        rangeselct_function(self.afterrange, auto, auto)
 
     def afterrange(self, rect):
         gobject.baseobject.textsource.newrangeadjustor()
@@ -931,37 +883,62 @@ class QUnFrameWindow(resizableframeless):
         self._TitleLabel.hide()
         self.set_color_transparency()
 
-    def enterEvent(self, QEvent):
+    def checkisentered(self):
+        onlychecktitle = globalconfig["mousetransparent"]
+        hwnd = windows.GetForegroundWindow()
+        hwndpid = windows.GetWindowThreadProcessId(hwnd)
+        ismyprocbutnotmainuiforeground = hwndpid == os.getpid() and hwnd != int(
+            self.winId()
+        )
+        onlychecktitle = onlychecktitle or ismyprocbutnotmainuiforeground
+        if onlychecktitle:
+            return self._TitleLabel.geometry().contains(
+                self.mapFromGlobal(QCursor.pos())
+            )
+        else:
+            return self.geometry().contains(QCursor.pos())
+
+    def __betterenterevent(self):
+        if self._isentered:
+            return
+        if not self.checkisentered():
+            return
+        self._isentered = True
         self.enterfunction()
 
-    def enterfunction(self):
+    @threader
+    def dodelayhide(self, delay):
+        enter_sig = time.time()
+        self.enter_sig = enter_sig
+        while self.checkisentered():
+            time.sleep(0.1)
+        self._isentered = False
+        if delay is None:
+            delay = globalconfig["disappear_delay_tool"]
+        time.sleep(delay)
+        if self.enter_sig != enter_sig:
+            return
+        if globalconfig["locktools"]:
+            return
+        self.toolbarhidedelaysignal.emit()
 
+    def enterfunction(self, delay=None):
         for button in self.showbuttons:
             button.show()
         self._TitleLabel.show()
-
-        if globalconfig["locktools"]:
-            return
-
-        def __(s):
-            c = QCursor()
-            while self.underMouse():
-                time.sleep(0.1)
-            time.sleep(0.5)
-            if (globalconfig["locktools"] == False) and (not self.underMouse()):
-                s.toolbarhidedelaysignal.emit()
-
-        threading.Thread(target=lambda: __(self)).start()
         self.set_color_transparency()
 
-    def resizeEvent(self, e):
+        self.dodelayhide(delay)
+
+    def resizeEvent(self, e: QResizeEvent):
         super().resizeEvent(e)
         wh = globalconfig["buttonsize"] * 1.5
         height = self.height() - wh
 
         self.translate_text.resize(self.width(), int(height))
-        self.adjustbuttons()
-        self._TitleLabel.setFixedWidth(self.width())
+        if e.oldSize().width() != e.size().width():
+            self.adjustbuttons()
+            self._TitleLabel.setFixedWidth(self.width())
 
     def adjustbuttons(self):
         left = []
@@ -1007,8 +984,6 @@ class QUnFrameWindow(resizableframeless):
         for button in center:
             button.move(int(leftstart), 0)
             leftstart += button.width()
-        for button in self.showbuttons:
-            button.show()
 
     def callwrap(self, call, _):
         try:
@@ -1017,27 +992,73 @@ class QUnFrameWindow(resizableframeless):
             print_exc()
 
     def takusanbuttons(self, _type, clickfunc, tips, name, belong=None):
+        if clickfunc:
+            button = QPushButton(self)
+            button.clicked.connect(functools.partial(self.callwrap, clickfunc))
+        else:
 
-        button = QPushButton(self)
+            class __(QPushButton):
+                def __init__(self, p):
+                    super().__init__(p)
+                    self._lb = QLabel(p)
+                    self._lb.raise_()
+
+                def hideEvent(self, _):
+                    self._lb.hide()
+
+                def showEvent(self, _):
+                    self._lb.show()
+
+                def moveEvent(self, event):
+                    self._lb.move(event.pos())
+
+                def resizeEvent(self, event):
+                    self._lb.resize(event.size())
+
+            button = __(self)
+
         if tips:
             button.setToolTip(_TR(tips))
         if _type not in self.stylebuttons:
             self.stylebuttons[_type] = []
         self.stylebuttons[_type].append(button)
-        if clickfunc:
-            button.clicked.connect(functools.partial(self.callwrap, clickfunc))
-        else:
-            button.lower()
 
         button.belong = belong
         self.buttons[name] = button
+
+    def tryremoveuseless(self):
+        try:
+            allisremoved = True
+            tmpbase = gobject.gettempdir_1()
+            for f in os.listdir(tmpbase):
+                try:
+                    pid = int(f)
+                except:
+                    continue
+                if (pid != os.getpid()) and (winsharedutils.pid_running(pid)):
+                    allisremoved = False
+                    continue
+
+                try:
+                    shutil.rmtree(os.path.join(tmpbase, f))
+                except:
+                    pass
+            if allisremoved:
+                try:
+                    shutil.rmtree(tmpbase)
+                except:
+                    pass
+            try:
+                os.remove("./cache/Updater.exe")
+            except:
+                pass
+        except:
+            pass
 
     def closeEvent(self, a0) -> None:
         if self.fullscreenmanager:
             self.fullscreenmanager.endX()
         gobject.baseobject.isrunning = False
-        self.tray.hide()
-        self.tray = None
         self.hide()
 
         if gobject.baseobject.textsource:
@@ -1047,4 +1068,7 @@ class QUnFrameWindow(resizableframeless):
         saveallconfig()
 
         endsubprocs()
+        self.tryremoveuseless()
+        gobject.baseobject.destroytray()
+        doupdate()
         os._exit(0)

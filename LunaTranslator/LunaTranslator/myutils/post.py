@@ -1,14 +1,24 @@
-import re, codecs
+import re, codecs, inspect
 from traceback import print_exc
 from collections import Counter
-import importlib, gobject
-from myutils.utils import getfilemd5
+import gobject
+from myutils.utils import checkchaos, checkmd5reloadmodule, LRUCache, getlangsrc
 from myutils.config import (
     postprocessconfig,
     globalconfig,
     savehook_new_data,
-    getlangsrc,
 )
+
+lrucache = LRUCache(0)
+
+
+def dedump(line, args):
+    size = args["cachesize"]
+    lrucache.setcap(size)
+    if lrucache.test(line):
+        return ""
+    else:
+        return line
 
 
 def _2_f(line, args):
@@ -295,7 +305,21 @@ def _remove_not_in_ja_bracket(line):
     return line
 
 
-from myutils.utils import checkchaos
+def length_threshold(line, args):
+    if len(line) > args["maxzishu"] or len(line) < args["minzishu"]:
+        if args["cut"]:
+            return line[: args["maxzishu"]]
+        return ""
+    return line
+
+
+def lines_threshold(line, args):
+    sps = line.split("\n")
+    if len(sps) > args["maxzishu"] or len(sps) < args["minzishu"]:
+        if args["cut"]:
+            return "\n".join(sps[: args["maxzishu"]])
+        return ""
+    return line
 
 
 def _remove_chaos(line):
@@ -307,12 +331,16 @@ def _remove_chaos(line):
     return newline
 
 
-_selfdefpost = None
-_selfdefpostmd5 = None
+def _mypostloader(line, file, module):
+
+    isnew, _ = checkmd5reloadmodule(file, module)
+    # 这个是单独函数的模块，不需要用isnew来判断是否需要重新初始化
+    if not _:
+        return line
+    return _.POSTSOLVE(line)
 
 
 def POSTSOLVE(line):
-    global _selfdefpostmd5, _selfdefpost
     if line == "":
         return ""
     functions = {
@@ -337,47 +365,37 @@ def POSTSOLVE(line):
         "_remove_control": _remove_control,
         "_remove_chaos": _remove_chaos,
         "_remove_not_in_ja_bracket": _remove_not_in_ja_bracket,
+        "dedump": dedump,
+        "length_threshold": length_threshold,
+        "lines_threshold": lines_threshold,
+        "_11": _mypostloader,
     }
     useranklist = globalconfig["postprocess_rank"]
     usedpostprocessconfig = postprocessconfig
     usemypostpath = "./userconfig/mypost.py"
     usemodule = "mypost"
     try:
-        if "pname" in dir(gobject.baseobject.textsource):
-            exepath = gobject.baseobject.textsource.pname
-            if savehook_new_data[exepath]["use_saved_text_process"]:
-                useranklist = savehook_new_data[exepath]["save_text_process_info"][
+        if gobject.baseobject.textsource:
+            gameuid = gobject.baseobject.textsource.gameuid
+            if gameuid and not savehook_new_data[gameuid]["textproc_follow_default"]:
+                useranklist = savehook_new_data[gameuid]["save_text_process_info"][
                     "rank"
                 ]
-                usedpostprocessconfig = savehook_new_data[exepath][
+                usedpostprocessconfig = savehook_new_data[gameuid][
                     "save_text_process_info"
                 ]["postprocessconfig"]
-                if savehook_new_data[exepath]["save_text_process_info"]["mypost"]:
+                if savehook_new_data[gameuid]["save_text_process_info"].get(
+                    "mypost", None
+                ):
                     usemodule = (
                         "posts."
-                        + savehook_new_data[exepath]["save_text_process_info"]["mypost"]
+                        + savehook_new_data[gameuid]["save_text_process_info"]["mypost"]
                     )
                     usemypostpath = "./userconfig/posts/{}.py".format(
-                        savehook_new_data[exepath]["save_text_process_info"]["mypost"]
+                        savehook_new_data[gameuid]["save_text_process_info"]["mypost"]
                     )
     except:
         print_exc()
-    try:
-        md5 = getfilemd5(usemypostpath)
-        if md5 != _selfdefpostmd5:
-            _ = importlib.import_module(usemodule)
-            _ = importlib.reload(_)
-            _selfdefpostmd5 = md5
-            _selfdefpost = _
-        else:
-            _ = _selfdefpost
-        functions.update({"_11": _.POSTSOLVE})
-    except ModuleNotFoundError:
-        pass
-    except:
-        print_exc()
-        pass
-
     for postitem in useranklist:
         if postitem not in functions:
             continue
@@ -386,17 +404,20 @@ def POSTSOLVE(line):
         if usedpostprocessconfig[postitem]["use"]:
             try:
                 _f = functions[postitem]
-                if _f.__code__.co_argcount == 1:
-                    line = functions[postitem](line)
-                elif _f.__code__.co_argcount == 2:
-                    line = functions[postitem](
-                        line, usedpostprocessconfig[postitem].get("args", {})
-                    )
-                else:
-                    raise Exception("unsupported parameters num")
-
-            except Exception as e:
-                print_exc()
                 if postitem == "_11":
-                    raise e
+                    line = functions[postitem](line, usemypostpath, usemodule)
+                else:
+                    sig = inspect.signature(_f)
+                    np = len(sig.parameters)
+                    if np == 1:
+                        line = functions[postitem](line)
+                    elif np == 2:
+                        line = functions[postitem](
+                            line, usedpostprocessconfig[postitem].get("args", {})
+                        )
+                    else:
+                        raise Exception("unsupported parameters num")
+
+            except:
+                print_exc()
     return line

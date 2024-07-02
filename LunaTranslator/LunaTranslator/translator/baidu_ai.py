@@ -22,7 +22,7 @@ class TS(basetrans):
             "sec-ch-ua-mobile": "?0",
             "sec-ch-ua-platform": '"Windows"',
         }
-        self.session.get(
+        self.proxysession.get(
             "https://fanyi.baidu.com/mtpe-individual/multimodal#/", headers=headers
         )
 
@@ -74,7 +74,7 @@ class TS(basetrans):
             "milliTimestamp": int(time.time() * 1000),
         }
 
-        response = self.session.post(
+        response = self.proxysession.post(
             "https://fanyi.baidu.com/ait/text/translate",
             headers=headers,
             json=json_data,
@@ -86,6 +86,8 @@ class TS(basetrans):
             if len(text) == 0 or text[:5] != b"data:":
                 continue
             js = json.loads(text[5:].decode("utf8"))
+            if js["data"] is None:
+                continue
             event = js["data"]["event"]
             if event == "Translating":
                 trans = "\n".join([_["dst"] for _ in js["data"]["list"]])

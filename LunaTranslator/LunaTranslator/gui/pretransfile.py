@@ -1,22 +1,9 @@
-from PyQt5.QtWidgets import (
-    QComboBox,
-    QPushButton,
-    QFormLayout,
-    QHBoxLayout,
-    QDialogButtonBox,
-    QDialog,
-    QLineEdit,
-    QFileDialog,
-)
-
-from PyQt5.QtCore import Qt, QSize
-import sqlite3, os
-import json
+from qtsymbols import *
+import sqlite3, os, json, functools
 from traceback import print_exc
-import functools
 from myutils.config import globalconfig, _TR
 from myutils.utils import autosql
-from gui.usefulwidget import getQMessageBox
+from gui.usefulwidget import getQMessageBox, FocusCombo
 
 
 def sqlite2json2(self, sqlitefile, targetjson=None, existsmerge=False):
@@ -54,13 +41,13 @@ def sqlite2json2(self, sqlitefile, targetjson=None, existsmerge=False):
             _collect.append(_)
     collect = _collect
 
-    dialog = QDialog(self, Qt.WindowCloseButtonHint)  # 自定义一个dialog
+    dialog = QDialog(self, Qt.WindowType.WindowCloseButtonHint)  # 自定义一个dialog
     dialog.setWindowTitle(_TR("导出翻译记录为json文件"))
     dialog.resize(QSize(800, 10))
     formLayout = QFormLayout(dialog)  # 配置layout
     dialog.setLayout(formLayout)
 
-    combo = QComboBox()
+    combo = FocusCombo()
     combo.addItems([globalconfig["fanyi"][_]["name"] for _ in collect])
 
     formLayout.addRow(_TR("首选翻译"), combo)
@@ -85,7 +72,9 @@ def sqlite2json2(self, sqlitefile, targetjson=None, existsmerge=False):
     if targetjson is None:
         formLayout.addRow(_TR("保存路径"), hori)
 
-    button = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+    button = QDialogButtonBox(
+        QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+    )
     formLayout.addRow(button)
     button.rejected.connect(dialog.close)
 
@@ -106,7 +95,7 @@ def sqlite2json2(self, sqlitefile, targetjson=None, existsmerge=False):
             for k in existsjs:
                 if k not in js_format2 or js_format2[k] == "":
                     js_format2[k] = existsjs[k]
-
+        os.makedirs(os.path.dirname(target), exist_ok=True)
         with open(target, "w", encoding="utf8") as ff:
             ff.write(
                 json.dumps(js_format2, ensure_ascii=False, sort_keys=False, indent=4)
@@ -114,14 +103,13 @@ def sqlite2json2(self, sqlitefile, targetjson=None, existsmerge=False):
         dialog.close()
 
     button.accepted.connect(functools.partial(__savefunction, targetjson, existsmerge))
-    button.button(QDialogButtonBox.Ok).setText(_TR("确定"))
-    button.button(QDialogButtonBox.Cancel).setText(_TR("取消"))
+    button.button(QDialogButtonBox.StandardButton.Ok).setText(_TR("确定"))
+    button.button(QDialogButtonBox.StandardButton.Cancel).setText(_TR("取消"))
     dialog.show()
 
 
 def sqlite2json(self):
-    os.makedirs("./translation_record", exist_ok=True)
-    f = QFileDialog.getOpenFileName(directory="./translation_record", filter="*.sqlite")
+    f = QFileDialog.getOpenFileName(directory="translation_record", filter="*.sqlite")
     if f[0] == "":
         return
 

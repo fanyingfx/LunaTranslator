@@ -1,24 +1,26 @@
 import json
-import os, time
+import os, time, uuid
+from traceback import print_exc
 
 
 def tryreadconfig(path, default=None):
+    path = os.path.join("userconfig", path)
+    if not os.path.exists(path):
+        path += ".tmp"
+    dfret = default if default else {}
+    if not os.path.exists(path):
+        return dfret
     try:
-        path = os.path.join("./userconfig/", path)
-        if os.path.exists(path) == False:
-            path += ".tmp"
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as ff:
-                x = json.load(ff)
-        else:
-            x = default if default else {}
+        with open(path, "r", encoding="utf-8") as ff:
+            x = json.load(ff)
+
         return x
     except:
-        return {}
+        return dfret
 
 
 def tryreadconfig2(path):
-    path = os.path.join("./files/defaultconfig/", path)
+    path = os.path.join("files/defaultconfig", path)
     with open(path, "r", encoding="utf-8") as ff:
         x = json.load(ff)
     return x
@@ -40,33 +42,84 @@ magpie_config = tryreadconfig("magpie_config.json")
 postprocessconfig = tryreadconfig("postprocessconfig.json")
 noundictconfig = tryreadconfig("noundictconfig.json")
 transerrorfixdictconfig = tryreadconfig("transerrorfixdictconfig.json")
-_savehook = tryreadconfig("savehook_new_1.39.4.json", default=[[], {}])
-try:
+_savehook = tryreadconfig("savegamedata_5.3.1.json")
+if _savehook:
+    # 新版
+    # savehook_new_list: [uid,...]
+    # savehook_new_data:{uid:dict,...}
+    # savegametaged:[ None, {'games':[uid,...],'title':str,'opened':bool,'uid':str},...]
+    # gamepath2uid:{gamepath:uid}
     savehook_new_list = _savehook[0]
     savehook_new_data = _savehook[1]
-except:
-    savehook_new_list = []
-    savehook_new_data = {}
+    savegametaged = _savehook[2]
+    # gamepath2uid = _savehook[3] 不再使用，允许重复的path
+else:
 
+    _savehook = tryreadconfig("savehook_new_1.39.4.json", default=[[], {}])
+
+    # savehook_new_list: [gamepath,...]
+    # savehook_new_data:{gamepath:dict,...}
+    # savegametaged: 可能没有该项 [ None, {'games':[gamepath,...],'title':str,'opened':bool,'uid':str},...]
+    try:
+        savehook_new_list = _savehook[0]
+        savehook_new_data = _savehook[1]
+    except:
+        savehook_new_list = []
+        savehook_new_data = {}
+
+    try:
+        savegametaged = _savehook[2]
+    except:
+        savegametaged = [None]
+
+    # 将savehook_new_data转换为新的格式
+    __gamepath2uid = {}
+    __savehook_new_data = {}
+    for k in savehook_new_data:
+        uid = f"{time.time()}_{uuid.uuid4()}"
+
+        __savehook_new_data[uid] = savehook_new_data[k]
+        __savehook_new_data[uid].update(gamepath=k)
+        __gamepath2uid[k] = uid
+    savehook_new_data = __savehook_new_data
+
+    # 将global游戏表和自定义子列表都转换成新格式
+    def parselist(ls):
+        for i in range(len(ls)):
+            ori = ls[i]
+            if ori not in __gamepath2uid:
+                continue
+            ls[i] = __gamepath2uid[ori]
+
+    parselist(savehook_new_list)
+    for sub in savegametaged:
+        if sub is None:
+            continue
+        parselist(sub["games"])
 translatorsetting = tryreadconfig("translatorsetting.json")
 ocrsetting = tryreadconfig("ocrsetting.json")
 
-vndbtagdata = tryreadconfig("vndbtagdata.json")
 
-
-def getdefaultsavehook(gamepath, title=None):
+def getdefaultsavehook(title=None):
     default = {
+        "gamepath": "",  # 不要直接访问，要通过uid2gamepath来间接访问
+        "hooksetting_follow_default": True,
+        "hooksetting_private": {},  # 显示时再加载，缺省用global中的键
+        "textproc_follow_default": True,
+        "save_text_process_info": {
+            "postprocessconfig": {},
+            "rank": [],
+            # "mypost":# 设置时再加载
+        },
+        "lang_follow_default": True,
+        # "private_srclang": 0,# 显示时再加载，缺省用global中的键
+        # "private_tgtlang": 0,
+        "follow_default_ankisettings": True,
+        # "anki_DeckName":str
         "localeswitcher": 0,
         "onloadautochangemode2": 0,
-        "onloadautoswitchsrclang": 0,
         "needinserthookcode": [],
         "embedablehook": [],
-        "imagepath": None,
-        "isimagepathusersetted": False,
-        "istitlesetted": False,
-        "infopath": None,
-        "vid": 0,
-        "namemap": {},
         "statistic_playtime": 0,
         "statistic_wordcount": 0,
         "statistic_wordcount_nodump": 0,
@@ -76,59 +129,102 @@ def getdefaultsavehook(gamepath, title=None):
         "hook": [],
         "inserthooktimeout": 0,
         "needinserthookcode": [],
-        "removeuseless": False,
-        "codepage_index": 0,
-        # "allow_tts_auto_names": "",
+        # "allow_tts_auto_names": "",#->v4
         "allow_tts_auto_names_v4": [],
         "tts_repair": False,
         "tts_repair_regex": [],
         "hooktypeasname": {},
         "use_saved_text_process": False,
-        "searchnoresulttime": 0,
-        "relationlinks": [],
-        "gamejsonfile": "",
+        # "searchnoresulttime": 0,
+        "gamejsonfile": [],  # 之前是"",后面改成[]
         "gamesqlitefile": "",
-        "vndbtags": [],
+        "relationlinks": [],
+        # "vndbtags": [],#->webtags
         "usertags": [],
-        "traceplaytime_v2": [],  # [[start,end]]
-        "autosavesavedata": "",
+        # "traceplaytime_v2": [],  # [[start,end]]->db.traceplaytime_v4，这个东西增加到太快了，有点膨胀
+        # "autosavesavedata": "",
+        # 判断是否为自定义元数据，避免覆写
+        # "isimagepathusersetted": False,
+        # "isimagepathusersetted_much": False,
+        "istitlesetted": False,
+        "currentvisimage": None,
+        "currentmainimage": "",
+        # 元数据
+        "namemap": {},  # 人名翻译映射，vndb独占，用于优化翻译
+        #
+        "vid": 0,
+        "bgmsid": 0,
+        "dlsiteid": "RJ/VJXXXX",
+        "fanzaid": "",
+        "steamid": 0,
+        "title": "",
+        # "imagepath": None,  # 封面->imagepath_all[0]
+        # "imagepath_much2": [],  # 截图->imagepath_all[1:]
+        "imagepath_all": [],
         "developers": [],
+        "webtags": [],  # 标签
+        # "infopath": None,  # 离线存储的主页
     }
     if title and len(title):
-        default["title"] = title
-    else:
-        default["title"] = (
-            os.path.basename(os.path.dirname(gamepath))
-            + "/"
-            + os.path.basename(gamepath)
-        )
+        default["title"] = title  # metadata
 
     return default
 
 
 _dfsavehook = getdefaultsavehook("")
-for game in savehook_new_data:
-    if ("traceplaytime_v2" not in savehook_new_data[game]) and (
-        "statistic_playtime" in savehook_new_data[game]
-    ):
-        savehook_new_data[game]["traceplaytime_v2"] = [
-            [
-                0,
-                savehook_new_data[game]["statistic_playtime"],
-            ]
-        ]
+for uid in savehook_new_data:
     if (
-        ("allow_tts_auto_names_v4" not in savehook_new_data[game])
-        and ("allow_tts_auto_names" in savehook_new_data[game])
-        and len(savehook_new_data[game]["allow_tts_auto_names"])
+        ("allow_tts_auto_names_v4" not in savehook_new_data[uid])
+        and ("allow_tts_auto_names" in savehook_new_data[uid])
+        and len(savehook_new_data[uid]["allow_tts_auto_names"])
     ):
-        savehook_new_data[game]["allow_tts_auto_names_v4"] = savehook_new_data[game][
+        savehook_new_data[uid]["allow_tts_auto_names_v4"] = savehook_new_data[uid][
             "allow_tts_auto_names"
         ].split("|")
 
     for k in _dfsavehook:
-        if k not in savehook_new_data[game]:
-            savehook_new_data[game][k] = _dfsavehook[k]
+        if k not in savehook_new_data[uid]:
+            savehook_new_data[uid][k] = _dfsavehook[k]
+
+
+class __uid2gamepath:
+    def __setitem__(self, uid, value):
+
+        savehook_new_data[uid]["gamepath"] = value
+
+    def __getitem__(self, uid):
+        return savehook_new_data.get(uid, {}).get("gamepath", None)
+
+
+uid2gamepath = __uid2gamepath()
+
+
+def findgameuidofpath(gamepath, targetlist=None, findall=False):
+    # 一般只在save_game_list里查找，用于从getpidexe获取uid
+    # 因为有可能有过去的不再使用的uid，发生碰撞。
+    # 只在添加游戏时，全面查找。
+    if not gamepath:
+        if findall:
+            return []
+        else:
+            return None
+    # 遍历的速度非常快，1w条的速度也就0.001x秒
+    # 但1w条数据时，load/dump的速度就有点慢了，能2秒多
+
+    checkin = targetlist
+    if checkin is None:
+        checkin = savehook_new_data.keys()
+    collect = []
+    for uid in checkin:
+        if savehook_new_data[uid]["gamepath"] == gamepath:
+            if findall:
+                collect.append(uid)
+            else:
+                return uid
+    if findall:
+        return collect
+    else:
+        return None
 
 
 def syncconfig(config1, default, drop=False, deep=0, skipdict=False):
@@ -137,10 +233,21 @@ def syncconfig(config1, default, drop=False, deep=0, skipdict=False):
         if key not in config1:
             config1[key] = default[key]
 
-        elif key == "name":
+        elif key in ("name", "tip"):
             config1[key] = default[key]
         elif key == "argstype":
             config1[key] = default[key]
+        elif key == "args":
+            _nuse = []
+            for k in default[key]:
+                if k not in config1[key]:
+                    config1[key][k] = default[key][k]
+            for k in config1[key]:
+                if k not in default[key]:
+                    _nuse.append(k)
+            for k in _nuse:
+                config1[key].pop(k)
+
         else:
             if type(default[key]) != type(config1[key]) and (
                 type(default[key]) == dict or type(default[key]) == list
@@ -192,17 +299,20 @@ for key in ___:
     globalconfig["toolbutton"]["rank2"].remove(key)
 
 
+for group in ["webview", "textbrowser"]:
+
+    if (
+        globalconfig["rendertext_using_internal"][group]
+        not in static_data["textrender"][group]
+    ):
+        globalconfig["rendertext_using_internal"][group] = static_data["textrender"][
+            group
+        ][0]
+
+
 def getlanguse():
     global language, languageshow
     return static_data["language_list_translator_inner"][language]
-
-
-def getlangsrc():
-    return static_data["language_list_translator_inner"][globalconfig["srclang3"]]
-
-
-def getlangtgt():
-    return static_data["language_list_translator_inner"][globalconfig["tgtlang3"]]
 
 
 def setlanguage():
@@ -241,6 +351,74 @@ def _TR(k):
             return languageshow[k]
 
 
+lastapppath = globalconfig["lastapppath"]
+thisapppath = os.path.normpath(os.getcwd())
+
+if lastapppath is None:
+    lastapppath = thisapppath
+else:
+    lastapppath = os.path.normpath(lastapppath)
+
+globalconfig["lastapppath"] = thisapppath
+
+
+def dynamicrelativepath(abspath):
+    if os.path.exists(abspath):
+        return abspath
+    _ = os.path.normpath(abspath)
+    if _.startswith(lastapppath):
+        np = thisapppath + _[len(lastapppath) :]
+        if os.path.exists(np):
+            return np
+    return abspath
+
+
+def parsetarget(dict_, key):
+    t = dict_[key]
+
+    if isinstance(t, list):
+        t = [dynamicrelativepath(_) for _ in t]
+    else:
+        t = dynamicrelativepath(t)
+    dict_[key] = t
+
+
+def autoparsedynamicpath():
+    for dic, routine, target in (
+        (globalconfig, ("cishu", "mdict", "args"), "paths"),
+        (globalconfig, ("cishu", "mdict", "args"), "path_dir"),
+        (globalconfig, ("cishu", "edict", "args"), "path"),
+        (globalconfig, ("cishu", "linggesi", "args"), "path"),
+        (globalconfig, ("cishu", "xiaoxueguan", "args"), "path"),
+        (globalconfig, ("hirasetting", "mecab", "args"), "path"),
+        (globalconfig, ("hirasetting", "mecab", "args"), "path"),
+        (globalconfig, ("reader", "voiceroid2", "args"), "path"),
+        (translatorsetting, ("dreye", "args"), "path"),
+        (translatorsetting, ("jb7", "args"), "path"),
+        (translatorsetting, ("jb7", "args"), "path_userdict3"),
+        (translatorsetting, ("jb7", "args"), "path_userdict1"),
+        (translatorsetting, ("jb7", "args"), "path_userdict2"),
+        (translatorsetting, ("kingsoft", "args"), "path"),
+        (translatorsetting, ("ort_sp", "args"), "path"),
+        (translatorsetting, ("premt", "args"), "sqlitefile"),
+        (translatorsetting, ("rengong", "args"), "jsonfile"),
+    ):
+        try:
+            for _k in routine:
+                dic = dic.get(_k, None)
+                if dic is None:
+                    break
+            if dic is None:
+                continue
+            parsetarget(dic, target)
+        except:
+            print_exc()
+
+
+if thisapppath != lastapppath:
+    autoparsedynamicpath()
+
+
 def _TRL(kk):
     x = []
     for k in kk:
@@ -248,16 +426,22 @@ def _TRL(kk):
     return x
 
 
-def saveallconfig():
-    def safesave(fname, js):
-        # 有时保存时意外退出，会导致config文件被清空
-        with open(fname + ".tmp", "w", encoding="utf-8") as ff:
-            ff.write(json.dumps(js, ensure_ascii=False, sort_keys=False, indent=4))
-        if os.path.exists(fname):
-            os.remove(fname)
-        os.rename(fname + ".tmp", fname)
-
+def safesave(fname, js, beatiful=True):
+    # 有时保存时意外退出，会导致config文件被清空
     os.makedirs("./userconfig", exist_ok=True)
+    with open(fname + ".tmp", "w", encoding="utf-8") as ff:
+        if beatiful:
+            ff.write(json.dumps(js, ensure_ascii=False, sort_keys=False, indent=4))
+        else:
+            # savegamedata 1w条时，indent=4要2秒，不indent 0.37秒，不ensure_ascii 0.27秒，用不着数据库了
+            ff.write(json.dumps(js, sort_keys=False))
+    if os.path.exists(fname):
+        os.remove(fname)
+    os.rename(fname + ".tmp", fname)
+
+
+def saveallconfig():
+
     safesave("./userconfig/config.json", globalconfig)
     safesave("./userconfig/magpie_config.json", magpie_config)
     safesave("./userconfig/postprocessconfig.json", postprocessconfig)
@@ -266,9 +450,10 @@ def saveallconfig():
     safesave("./userconfig/translatorsetting.json", translatorsetting)
     safesave("./userconfig/ocrerrorfix.json", ocrerrorfix)
     safesave("./userconfig/ocrsetting.json", ocrsetting)
-    safesave("./userconfig/vndbtagdata.json", vndbtagdata)
     safesave(
-        "./userconfig/savehook_new_1.39.4.json", [savehook_new_list, savehook_new_data]
+        "./userconfig/savegamedata_5.3.1.json",
+        [savehook_new_list, savehook_new_data, savegametaged, None],
+        beatiful=False,
     )
     safesave(
         "./files/lang/{}.json".format(getlanguse()),

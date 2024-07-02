@@ -2,10 +2,9 @@ import time
 from myutils.config import globalconfig
 import winsharedutils
 from gui.rangeselect import rangeadjust
-from myutils.ocrutil import imageCut, ocr_run, ocr_end,qimage2binary
-import time, gobject, os
-from PyQt5.QtWidgets import QApplication
-from PyQt5.QtGui import QImage
+from myutils.ocrutil import imageCut, ocr_run, ocr_end
+import time, gobject
+from qtsymbols import *
 from textsource.textsourcebase import basetext
 
 
@@ -69,8 +68,12 @@ class ocrtext(basetext):
 
     def showhiderangeui(self, b):
         for _ in self.range_ui:
-            if _.getrect():
-                _.setVisible(b)
+            if b:
+                _r = _.getrect()
+                if _r:
+                    _.setrect(_r)
+            else:
+                _.hide()
 
     def gettextthread(self):
         if all([_.getrect() is None for _ in self.range_ui]):
@@ -102,9 +105,12 @@ class ocrtext(basetext):
                 else:
                     image_score = 0
                 if i == 0:
-                    gobject.baseobject.settin_ui.threshold1label.setText(
-                        str(image_score)
-                    )
+                    try:
+                        gobject.baseobject.settin_ui.threshold1label.setText(
+                            str(image_score)
+                        )
+                    except:
+                        pass
                 self.savelastimg[i] = imgr1
 
                 if image_score > globalconfig["ocr_stable_sim"]:
@@ -115,9 +121,12 @@ class ocrtext(basetext):
                     else:
                         image_score2 = 0
                     if i == 0:
-                        gobject.baseobject.settin_ui.threshold2label.setText(
-                            str(image_score2)
-                        )
+                        try:
+                            gobject.baseobject.settin_ui.threshold2label.setText(
+                                str(image_score2)
+                            )
+                        except:
+                            pass
                     if image_score2 > globalconfig["ocr_diff_sim"]:
                         ok = False
                     else:
@@ -162,7 +171,6 @@ class ocrtext(basetext):
             self.savelasttext[i] = text
             __text.append(text)
         return "\n".join(__text)
-
 
     def end(self):
         globalconfig["ocrregions"] = [_.getrect() for _ in self.range_ui]

@@ -1,19 +1,6 @@
 from myutils.config import noundictconfig
-import gobject, re
-
-from PyQt5.QtWidgets import (
-    QDialog,
-    QLabel,
-    QLineEdit,
-    QPushButton,
-    QTableView,
-    QVBoxLayout,
-    QHBoxLayout,
-    QHeaderView,
-    QHBoxLayout,
-)
-from PyQt5.QtCore import QSize, Qt
-from PyQt5.QtGui import QCloseEvent, QStandardItem, QStandardItemModel
+import gobject, re, functools
+from qtsymbols import *
 from traceback import print_exc
 from myutils.config import (
     noundictconfig,
@@ -22,14 +9,44 @@ from myutils.config import (
 )
 import gobject
 from gui.usefulwidget import getQMessageBox, threebuttons
-from myutils.wrapper import Singleton
+from myutils.wrapper import Singleton_close
 
 
-@Singleton
+@Singleton_close
 class noundictconfigdialog(QDialog):
     def closeEvent(self, a0: QCloseEvent) -> None:
         self.button.setFocus()
         self.apply()
+
+    def showmenu(self, table: QTableView, pos):
+        r = table.currentIndex().row()
+        if r < 0:
+            return
+        menu = QMenu(table)
+        up = QAction(_TR("上移"))
+        down = QAction(_TR("下移"))
+        menu.addAction(up)
+        menu.addAction(down)
+        action = menu.exec(table.cursor().pos())
+
+        if action == up:
+
+            self.moverank(table, -1)
+
+        elif action == down:
+            self.moverank(table, 1)
+
+    def moverank(self, table: QTableView, dy):
+        curr = table.currentIndex()
+        target = (curr.row() + dy) % table.model().rowCount()
+        texts = [
+            table.model().item(curr.row(), i).text()
+            for i in range(table.model().columnCount())
+        ]
+
+        table.model().removeRow(curr.row())
+        table.model().insertRow(target, [QStandardItem(text) for text in texts])
+        table.setCurrentIndex(table.model().index(target, curr.column()))
 
     def apply(self):
         rows = self.model.rowCount()
@@ -52,7 +69,7 @@ class noundictconfigdialog(QDialog):
     def __init__(
         self, parent, configdict, title, label=["游戏ID MD5", "原文", "翻译"], _=None
     ) -> None:
-        super().__init__(parent, Qt.WindowCloseButtonHint)
+        super().__init__(parent, Qt.WindowType.WindowCloseButtonHint)
 
         self.setWindowTitle(_TR(title))
         # self.setWindowModality(Qt.ApplicationModal)
@@ -76,10 +93,13 @@ class noundictconfigdialog(QDialog):
         model.setHorizontalHeaderLabels(_TRL(label))
         table = QTableView(self)
         table.setModel(model)
-        table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        # table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        # table.clicked.connect(self.show_info)
-        button = threebuttons()
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        table.customContextMenuRequested.connect(
+            functools.partial(self.showmenu, table)
+        )
+        button = threebuttons(texts=["添加行", "删除行", "上移", "下移", "立即应用"])
+        self.table = table
 
         def clicked1():
             try:
@@ -97,19 +117,31 @@ class noundictconfigdialog(QDialog):
 
         def clicked2():
 
-            model.removeRow(table.currentIndex().row())
+            skip = []
+            for index in self.table.selectedIndexes():
+                if index.row() in skip:
+                    continue
+                skip.append(index.row())
+            skip = reversed(sorted(skip))
+
+            for row in skip:
+                model.removeRow(row)
 
         button.btn2clicked.connect(clicked2)
-        button.btn3clicked.connect(self.apply)
-        button5 = QPushButton(self)
-        button5.setText(_TR("设置所有词条为全局词条"))
+        button.btn3clicked.connect(functools.partial(self.moverank, table, -1))
+        button.btn4clicked.connect(functools.partial(self.moverank, table, 1))
+
+        button.btn5clicked.connect(self.apply)
+        button2 = threebuttons(
+            texts=["设置所有词条为全局词条", "以当前md5复制选中行"]
+        )
 
         def clicked5():
             rows = model.rowCount()
             for row in range(rows):
                 model.item(row, 0).setText("0")
 
-        button5.clicked.connect(
+        button2.btn1clicked.connect(
             lambda: getQMessageBox(
                 self,
                 "警告",
@@ -119,6 +151,8 @@ class noundictconfigdialog(QDialog):
                 lambda: clicked5(),
             )
         )
+
+        button2.btn2clicked.connect(self.copysetmd5)
 
         search = QHBoxLayout()
         searchcontent = QLineEdit()
@@ -145,7 +179,7 @@ class noundictconfigdialog(QDialog):
         formLayout.addWidget(table)
         formLayout.addLayout(search)
         formLayout.addWidget(button)
-        formLayout.addWidget(button5)
+        formLayout.addWidget(button2)
         setmd5layout = QHBoxLayout()
         setmd5layout.addWidget(QLabel(_TR("当前MD5")))
         md5content = QLineEdit(gobject.baseobject.currentmd5)
@@ -162,6 +196,25 @@ class noundictconfigdialog(QDialog):
         formLayout.addLayout(setmd5layout)
         self.resize(QSize(600, 400))
         self.show()
+
+    def copysetmd5(self):
+        if len(self.table.selectedIndexes()) == 0:
+            return
+        md5 = gobject.baseobject.currentmd5
+        row = self.table.selectedIndexes()[0].row()
+        skip = []
+        for index in self.table.selectedIndexes():
+            if index.row() in skip:
+                continue
+            skip.append(index.row())
+            self.model.insertRow(
+                row,
+                [
+                    QStandardItem(md5),
+                    QStandardItem(self.model.item(index.row(), 1).text()),
+                    QStandardItem(self.model.item(index.row(), 2).text()),
+                ],
+            )
 
 
 class Process:

@@ -1,17 +1,21 @@
-#include "define.h"
+﻿#include "define.h"
 
 DECLARE void showintab(HWND hwnd, bool show)
 {
+    // WS_EX_TOOLWINDOW可以立即生效，WS_EX_APPWINDOW必须切换焦点才生效。但是WS_EX_TOOLWINDOW会改变窗口样式，因此只对无边框窗口使用。
+    LONG style = GetWindowLong(hwnd, GWL_STYLE);
     auto style_ex = GetWindowLong(hwnd, GWL_EXSTYLE);
     if (show)
     {
         style_ex |= WS_EX_APPWINDOW;
-        style_ex &= ~WS_EX_TOOLWINDOW;
+        if ((style & WS_OVERLAPPEDWINDOW) != WS_OVERLAPPEDWINDOW)
+            style_ex &= ~WS_EX_TOOLWINDOW;
     }
     else
     {
         style_ex &= ~WS_EX_APPWINDOW;
-        style_ex |= WS_EX_TOOLWINDOW;
+        if ((style & WS_OVERLAPPEDWINDOW) != WS_OVERLAPPEDWINDOW)
+            style_ex |= WS_EX_TOOLWINDOW;
     }
     SetWindowLong(hwnd, GWL_EXSTYLE, style_ex);
 }
@@ -51,7 +55,9 @@ DECLARE void recoverwindow(HWND hwnd, windowstatus status)
 DECLARE bool pid_running(DWORD pid)
 {
     DWORD code;
-    GetExitCodeProcess(AutoHandle(OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid)), &code);
+    GetExitCodeProcess(AutoHandle(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid)), &code);
+    // 句柄必須具有 PROCESS_QUERY_INFORMATION 或 PROCESS_QUERY_LIMITED_INFORMATION 訪問許可權。 如需詳細資訊，請參閱 處理安全性和訪問許可權。
+    // Windows Server 2003 和 Windows XP： 句柄必須具有 PROCESS_QUERY_INFORMATION 訪問許可權。
     return code == STILL_ACTIVE;
     // auto process = AutoHandle(OpenProcess(SYNCHRONIZE, FALSE, pid));
     // DWORD ret = WaitForSingleObject(process, 0);
@@ -91,7 +97,9 @@ DECLARE bool Is64bit(DWORD pid)
     GetNativeSystemInfo(&sysinfo);
     if (sysinfo.wProcessorArchitecture == 9 || sysinfo.wProcessorArchitecture == 6)
     {
-        auto hprocess = AutoHandle(OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid));
+        auto hprocess = AutoHandle(OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid));
+        // 進程的控制碼。 控制碼必須具有PROCESS_QUERY_INFORMATION或PROCESS_QUERY_LIMITED_INFORMATION存取權限。 如需詳細資訊，請參閱 處理安全性和存取權限。
+        // Windows Server 2003 和 Windows XP： 控制碼必須具有PROCESS_QUERY_INFORMATION存取權限。
         BOOL b;
         IsWow64Process(hprocess, &b);
         return !b;

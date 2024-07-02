@@ -1,13 +1,21 @@
 from myutils.config import globalconfig
 from myutils.wrapper import threader
 from traceback import print_exc
+from myutils.proxy import getproxy
+
 
 class cishubase:
+    typename = None
+
     def init(self):
         pass
 
     def search(self, word):
         return word
+
+    @property
+    def proxy(self):
+        return getproxy(("cishu", self.typename))
 
     def __init__(self, typename) -> None:
         self.typename = typename
@@ -17,7 +25,7 @@ class cishubase:
             self.init()
             self.needinit = False
         except:
-            pass
+            print_exc()
 
     @threader
     def safesearch(self, sentence, callback):
@@ -30,9 +38,11 @@ class cishubase:
             except:
                 print_exc()
                 self.needinit = True
-
+                res = None
             if res and len(res):
                 callback(res)
+            else:
+                callback(None)
         except:
             pass
 

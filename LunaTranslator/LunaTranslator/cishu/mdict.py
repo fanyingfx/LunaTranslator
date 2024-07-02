@@ -1,4 +1,5 @@
-import math
+import math, base64, uuid, gobject
+import threading, time
 
 
 class FlexBuffer:
@@ -340,270 +341,12 @@ def rol(s, x):
     return (x << s | x >> (32 - s)) & 0xFFFFFFFF
 
 
-r = [
-    0,
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-    11,
-    12,
-    13,
-    14,
-    15,
-    7,
-    4,
-    13,
-    1,
-    10,
-    6,
-    15,
-    3,
-    12,
-    0,
-    9,
-    5,
-    2,
-    14,
-    11,
-    8,
-    3,
-    10,
-    14,
-    4,
-    9,
-    15,
-    8,
-    1,
-    2,
-    7,
-    0,
-    6,
-    13,
-    11,
-    5,
-    12,
-    1,
-    9,
-    11,
-    10,
-    0,
-    8,
-    12,
-    4,
-    13,
-    3,
-    7,
-    15,
-    14,
-    5,
-    6,
-    2,
-]
-rp = [
-    5,
-    14,
-    7,
-    0,
-    9,
-    2,
-    11,
-    4,
-    13,
-    6,
-    15,
-    8,
-    1,
-    10,
-    3,
-    12,
-    6,
-    11,
-    3,
-    7,
-    0,
-    13,
-    5,
-    10,
-    14,
-    15,
-    8,
-    12,
-    4,
-    9,
-    1,
-    2,
-    15,
-    5,
-    1,
-    3,
-    7,
-    14,
-    6,
-    9,
-    11,
-    8,
-    12,
-    2,
-    10,
-    0,
-    4,
-    13,
-    8,
-    6,
-    4,
-    1,
-    3,
-    11,
-    15,
-    0,
-    5,
-    12,
-    2,
-    13,
-    9,
-    7,
-    10,
-    14,
-]
-s = [
-    11,
-    14,
-    15,
-    12,
-    5,
-    8,
-    7,
-    9,
-    11,
-    13,
-    14,
-    15,
-    6,
-    7,
-    9,
-    8,
-    7,
-    6,
-    8,
-    13,
-    11,
-    9,
-    7,
-    15,
-    7,
-    12,
-    15,
-    9,
-    11,
-    7,
-    13,
-    12,
-    11,
-    13,
-    6,
-    7,
-    14,
-    9,
-    13,
-    15,
-    14,
-    8,
-    13,
-    6,
-    5,
-    12,
-    7,
-    5,
-    11,
-    12,
-    14,
-    15,
-    14,
-    15,
-    9,
-    8,
-    9,
-    14,
-    5,
-    6,
-    8,
-    6,
-    5,
-    12,
-]
-sp = [
-    8,
-    9,
-    9,
-    11,
-    13,
-    15,
-    15,
-    5,
-    7,
-    7,
-    8,
-    11,
-    14,
-    14,
-    12,
-    6,
-    9,
-    13,
-    15,
-    7,
-    12,
-    8,
-    9,
-    11,
-    7,
-    7,
-    12,
-    7,
-    6,
-    15,
-    13,
-    11,
-    9,
-    7,
-    15,
-    11,
-    8,
-    6,
-    6,
-    14,
-    12,
-    13,
-    5,
-    14,
-    13,
-    13,
-    7,
-    5,
-    15,
-    5,
-    8,
-    11,
-    14,
-    14,
-    6,
-    14,
-    6,
-    9,
-    12,
-    9,
-    12,
-    5,
-    15,
-    8,
-]
+# fmt: off
+r = [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 7, 4, 13, 1, 10, 6, 15, 3, 12, 0, 9, 5, 2, 14, 11, 8, 3, 10, 14, 4, 9, 15, 8, 1, 2, 7, 0, 6, 13, 11, 5, 12, 1, 9, 11, 10, 0, 8, 12, 4, 13, 3, 7, 15, 14, 5, 6, 2]
+rp = [ 5, 14, 7, 0, 9, 2, 11, 4, 13, 6, 15, 8, 1, 10, 3, 12, 6, 11, 3, 7, 0, 13, 5, 10, 14, 15, 8, 12, 4, 9, 1, 2, 15, 5, 1, 3, 7, 14, 6, 9, 11, 8, 12, 2, 10, 0, 4, 13, 8, 6, 4, 1, 3, 11, 15, 0, 5, 12, 2, 13, 9, 7, 10, 14]
+s = [ 11, 14, 15, 12, 5, 8, 7, 9, 11, 13, 14, 15, 6, 7, 9, 8, 7, 6, 8, 13, 11, 9, 7, 15, 7, 12, 15, 9, 11, 7, 13, 12, 11, 13, 6, 7, 14, 9, 13, 15, 14, 8, 13, 6, 5, 12, 7, 5, 11, 12, 14, 15, 14, 15, 9, 8, 9, 14, 5, 6, 8, 6, 5, 12]
+sp = [ 8, 9, 9, 11, 13, 15, 15, 5, 7, 7, 8, 11, 14, 14, 12, 6, 9, 13, 15, 7, 12, 8, 9, 11, 7, 7, 12, 7, 6, 15, 13, 11, 9, 7, 15, 11, 8, 6, 6, 14, 12, 13, 5, 14, 13, 13, 7, 5, 15, 5, 8, 11, 14, 14, 6, 14, 6, 9, 12, 9, 12, 5, 15, 8]
+# fmt: on
 
 
 def ripemd128(message):
@@ -1128,7 +871,7 @@ class MDict(object):
         """
         extract attributes from <Dict attr="value" ... >
         """
-        taglist = re.findall(b'(\w+)="(.*?)"', header, re.DOTALL)
+        taglist = re.findall(rb'(\w+)="(.*?)"', header, re.DOTALL)
         tagdict = {}
         for key, value in taglist:
             tagdict[key] = _unescape_entities(value)
@@ -1656,8 +1399,8 @@ class MDX(MDict):
 
     def _substitute_stylesheet(self, txt):
         # substitute stylesheet definition
-        txt_list = re.split("`\d+`", txt)
-        txt_tag = re.findall("`\d+`", txt)
+        txt_list = re.split(r"`\d+`", txt)
+        txt_tag = re.findall(r"`\d+`", txt)
         txt_styled = txt_list[0]
         for j, p in enumerate(txt_list[1:]):
             style = self._stylesheet[txt_tag[j][1:-1]]
@@ -1934,6 +1677,8 @@ if sys.hexversion >= 0x03000000:
 
 version = "1.1"
 
+import hashlib
+
 
 class IndexBuilder(object):
     # todo: enable history
@@ -1959,13 +1704,19 @@ class IndexBuilder(object):
         _filename, _file_extension = os.path.splitext(fname)
         assert _file_extension == ".mdx"
         assert os.path.isfile(fname)
-        self._mdx_db = _filename + ".mdx.db"
+        _mdxmd5 = (
+            os.path.basename(_filename)
+            + "_"
+            + hashlib.md5(_filename.encode("utf8")).hexdigest()
+        )
+        _targetfilenamebase = gobject.getcachedir("mdict/index/" + _mdxmd5)
+        self._mdx_db = _targetfilenamebase + ".mdx.db"
         # make index anyway
         if force_rebuild:
             self._make_mdx_index(self._mdx_db)
             if os.path.isfile(_filename + ".mdd"):
                 self._mdd_file = _filename + ".mdd"
-                self._mdd_db = _filename + ".mdd.db"
+                self._mdd_db = _targetfilenamebase + ".mdd.db"
                 self._make_mdd_index(self._mdd_db)
 
         if os.path.isfile(self._mdx_db):
@@ -1984,7 +1735,7 @@ class IndexBuilder(object):
                 print("mdx.db rebuilt!")
                 if os.path.isfile(_filename + ".mdd"):
                     self._mdd_file = _filename + ".mdd"
-                    self._mdd_db = _filename + ".mdd.db"
+                    self._mdd_db = _targetfilenamebase + ".mdd.db"
                     self._make_mdd_index(self._mdd_db)
                     print("mdd.db rebuilt!")
                 return None
@@ -2020,15 +1771,15 @@ class IndexBuilder(object):
 
         if os.path.isfile(_filename + ".mdd"):
             self._mdd_file = _filename + ".mdd"
-            self._mdd_db = _filename + ".mdd.db"
+            self._mdd_db = _targetfilenamebase + ".mdd.db"
             if not os.path.isfile(self._mdd_db):
                 self._make_mdd_index(self._mdd_db)
         pass
 
     def _replace_stylesheet(self, txt):
         # substitute stylesheet definition
-        txt_list = re.split("`\d+`", txt)
-        txt_tag = re.findall("`\d+`", txt)
+        txt_list = re.split(r"`\d+`", txt)
+        txt_tag = re.findall(r"`\d+`", txt)
         txt_styled = txt_list[0]
         for j, p in enumerate(txt_list[1:]):
             style = self._stylesheet[txt_tag[j][1:-1]]
@@ -2037,54 +1788,6 @@ class IndexBuilder(object):
             else:
                 txt_styled = txt_styled + style[0] + p + style[1]
         return txt_styled
-
-    def make_sqlite(self):
-        sqlite_file = self._mdx_file + ".sqlite.db"
-        if os.path.exists(sqlite_file):
-            os.remove(sqlite_file)
-        mdx = MDX(self._mdx_file)
-        conn = sqlite3.connect(sqlite_file)
-        cursor = conn.cursor()
-        cursor.execute(
-            """ CREATE TABLE MDX_DICT
-                (key text not null,
-                value text
-                )"""
-        )
-
-        # remove '(pīnyīn)', remove `1`:
-        aeiou = "āáǎàĀÁǍÀēéěèêềếĒÉĚÈÊỀẾīíǐìÍǏÌōóǒòŌÓǑÒūúǔùŪÚǓÙǖǘǚǜǕǗǙǛḾǹňŃŇ"
-        pattern = r"`\d+`|[（\(]?['a-z%s]*[%s]['a-z%s]*[\)）]?" % (aeiou, aeiou, aeiou)
-        tuple_list = [
-            (key.decode(), re.sub(pattern, "", value.decode()))
-            for key, value in mdx.items()
-        ]
-
-        cursor.executemany("INSERT INTO MDX_DICT VALUES (?,?)", tuple_list)
-
-        returned_index = mdx.get_index(check_block=self._check)
-        meta = returned_index["meta"]
-        cursor.execute("""CREATE TABLE META (key text, value text)""")
-
-        cursor.executemany(
-            "INSERT INTO META VALUES (?,?)",
-            [
-                ("encoding", meta["encoding"]),
-                ("stylesheet", meta["stylesheet"]),
-                ("title", meta["title"]),
-                ("description", meta["description"]),
-                ("version", version),
-            ],
-        )
-
-        if self._sql_index:
-            cursor.execute(
-                """
-                CREATE INDEX key_index ON MDX_DICT (key)
-                """
-            )
-        conn.commit()
-        conn.close()
 
     def _make_mdx_index(self, db_name):
         if os.path.exists(db_name):
@@ -2321,32 +2024,105 @@ import re
 
 
 class mdict(cishubase):
+    def getdistance(self, f):
+        _ = self.extraconf[f]
+
+        distance = _["distance"]
+        if distance == -1:
+            distance = self.config["distance"]
+        return distance
+
+    def gettitle(self, f, index):
+        _ = self.extraconf[f]
+        title = _["title"]
+        if title is None:
+            t = os.path.basename(f)[:-4]
+            if index._title.strip() != "":
+                t1 = index._title.strip()
+                if (t1.isascii()) and (t.isascii()):
+                    t = t1
+                elif not t1.isascii():
+                    t = t1
+            title = t
+        return title
+
+    def getpriority(self, f):
+        return self.extraconf[f]["priority"]
+
+    def getFoldFlow(self, f):
+        return self.extraconf[f]["FoldFlow"]
+
+    def init_once_mdx(self, f):
+        if not os.path.isfile(f):
+            return
+        f = os.path.normpath(f)
+        if f in self.dedump:
+            return
+        self.dedump.add(f)
+        _ = self.extraconf[f] = self.extraconf.get(f, {})
+        _["priority"] = _.get("priority", 100)  # 越大展示的越靠前
+        _["distance"] = _.get(
+            "distance", -1
+        )  # -1是跟随mdict全局distance，否则使用私有distance
+        _["title"] = _.get("title", None)  # None是使用默认显示名，否则使用自定义显示名
+        _["FoldFlow"] = _.get(
+            "FoldFlow", False
+        )  # None是使用默认显示名，否则使用自定义显示名
+        if os.path.exists(f):
+            try:
+                index = IndexBuilder(f)
+
+                self.builders.append((f, index))
+
+            except:
+                print(f)
+                from traceback import print_exc
+
+                print_exc()
+
     def init(self):
+        try:
+            with open("userconfig/mdict_config.json", "r", encoding="utf8") as ff:
+                self.extraconf = json.loads(ff.read())
+        except:
+            self.extraconf = {}
         self.sql = None
+        paths = self.config["paths"]
 
-        paths = self.config["path"]
         self.builders = []
-        for f in paths.split("|"):
-            if os.path.exists(f):
-                try:
-                    self.builders.append((IndexBuilder(f), f))
-                    # with open('1.txt','a',encoding='utf8') as ff:
-                    #     print(f,file=ff)
-                    #     print(self.builders[-1][0].get_mdx_keys(),file=ff)
-                    #     print(self.builders[-1][0].get_mdd_keys(),file=ff)
-                except:
-                    from traceback import print_exc
+        self.dedump = set()
+        for f in paths:
+            if f.strip() == "":
+                continue
+            self.init_once_mdx(f)
 
-                    print_exc()
+        for _dir, _, _fs in os.walk(self.config["path_dir"]):
+            for f in _fs:
+                if not f.lower().endswith(".mdx"):
+                    continue
+                f = os.path.join(_dir, f)
+                self.init_once_mdx(f)
 
-    def querycomplex(self, word, index):
+        try:
+            with open(
+                gobject.getuserconfigdir("mdict_config.json"), "w", encoding="utf8"
+            ) as ff:
+                ff.write(json.dumps(self.extraconf, ensure_ascii=False, indent=4))
+        except:
+            pass
+
+    def querycomplex(self, word, distance, index):
         results = []
         diss = {}
         import winsharedutils
 
+        dedump = set()
         for k in index("*" + word + "*"):
+            if k in dedump:
+                continue
+            dedump.add(k)
             dis = winsharedutils.distance(k, word)
-            if dis <= self.config["distance"]:
+            if dis <= distance:
                 results.append(k)
                 diss[k] = dis
 
@@ -2482,104 +2258,235 @@ class mdict(cishubase):
         else:
             return "application/octet-stream"
 
+    def parseaudio(self, html_content, url, file_content):
+        base64_content = base64.b64encode(file_content).decode("utf-8")
+
+        uid = str(uuid.uuid4())
+        # with open(uid+'.mp3','wb') as ff:
+        #     ff.write(file_content)
+        audio = f'<audio controls id="{uid}" style="display: none"><source src="data:{self.get_mime_type_from_magic(file_content)};base64,{base64_content}"></audio>'
+        html_content = audio + html_content.replace(
+            url,
+            f"javascript:document.getElementById('{uid}').play()",
+        )
+        return html_content
+
+    def tryloadurl(self, index: IndexBuilder, base, url: str):
+        _local = os.path.join(base, url)
+        iscss = url.lower().endswith(".css")
+        _type = 0
+        file_content = None
+        if iscss:
+            _type = 1
+        if os.path.exists(_local) and os.path.isfile(_local):
+            with open(os.path.join(base, url), "rb") as f:
+                file_content = f.read()
+            return _type, file_content
+
+        if url.startswith("#"):  # a href # 页内跳转
+            return -1, None
+
+        url1 = url.replace("/", "\\")
+        if not url1.startswith("\\"):
+            url1 = "\\" + url1
+        try:
+            file_content = index.mdd_lookup(url1)[0]
+        except:
+            pass
+        if file_content:
+            return _type, file_content
+
+        func = url.split(r"://")[0]
+        if func == "entry":
+            return -1, None
+        url1 = url.split(r"://")[1]
+        url1 = url1.replace("/", "\\")
+
+        if not url1.startswith("\\"):
+            url1 = "\\" + url1
+        try:
+            file_content = index.mdd_lookup(url1)[0]
+        except:
+            return None
+        if func == "sound":
+            _type = 2
+        return _type, file_content
+
+    def tryparsecss(self, html_content, url, file_content, divid):
+        try:
+            file_content = file_content.decode("utf8")
+        except:
+            return html_content
+        try:
+            from tinycss2 import parse_stylesheet, serialize
+            from tinycss2.ast import (
+                HashToken,
+                WhitespaceToken,
+                AtRule,
+                QualifiedRule,
+                ParseError,
+            )
+
+            rules = parse_stylesheet(file_content, True, True)
+
+            def parseaqr(rule: QualifiedRule):
+                start = True
+                idx = 0
+                skip = False
+                for token in rule.prelude.copy():
+                    if skip and token.type == "whitespace":
+                        skip = False
+                        idx += 1
+                        continue
+                    if start:
+                        if token.type == "ident" and token.value == "body":
+                            # body
+                            rule.prelude.insert(idx + 1, HashToken(0, 0, divid, True))
+                            rule.prelude.insert(idx + 1, WhitespaceToken(0, 0, " "))
+                            idx += 2
+                        else:
+                            # .id tag
+                            # tag
+                            # #class tag
+                            rule.prelude.insert(idx, WhitespaceToken(0, 0, " "))
+                            rule.prelude.insert(idx, HashToken(0, 0, divid, True))
+                            idx += 2
+                        start = False
+                    elif token.type == "literal" and token.value == ",":
+                        # 有多个限定符
+                        start = True
+                        skip = True
+                    idx += 1
+
+            class shitrule(AtRule):
+                def __init__(self, __):
+                    super().__init__(0, 0, " ", " ", [], [])
+                    self.__ = __
+
+                def _serialize_to(self, _):
+                    return _(self.__)
+
+            def parserules(rules):
+                # print(stylesheet)
+                for i, rule in enumerate(rules.copy()):
+                    if isinstance(rule, AtRule):
+                        if not rule.content:
+                            # @charset "UTF-8";
+                            continue
+                        internal = "".join([_.serialize() for _ in rule.content])
+                        internal = parse_stylesheet(internal, True, True)
+                        if len(internal) and isinstance(internal[0], ParseError):
+                            # @font-face
+                            continue
+                        # @....{ .klas{} }
+                        internal = parserules(internal)
+                        ser = "@"
+                        ser += rule.at_keyword
+                        ser += "{"
+                        for _ in internal:
+                            ser += _.serialize()
+                        ser += "}"
+                        # rule.serialize=functools.partial(__,ser)
+                        rules[i] = shitrule(ser)
+                    elif isinstance(rule, QualifiedRule):
+                        parseaqr(rules[i])
+                return rules
+
+            file_content = serialize(parserules(rules))
+            # print(file_content)
+        except:
+            from traceback import print_exc
+
+            print_exc()
+        base64_content = base64.b64encode(file_content.encode("utf8")).decode("utf-8")
+        html_content = html_content.replace(
+            url, f"data:text/css;base64,{base64_content}"
+        )
+        return html_content
+
     def repairtarget(self, index, base, html_content):
-        import base64
 
         src_pattern = r'src="([^"]+)"'
         href_pattern = r'href="([^"]+)"'
 
         src_matches = re.findall(src_pattern, html_content)
         href_matches = re.findall(href_pattern, html_content)
-
+        divid = "luna_internal_" + str(uuid.uuid4())
         for url in src_matches + href_matches:
-            oked = False
-            iscss = url.lower().endswith(".css")
             try:
-                try:
-                    with open(os.path.join(base, url), "rb") as f:
-                        file_content = f.read()
-
-                except:
-                    url1 = url.replace("/", "\\")
-                    if not url1.startswith("\\"):
-                        url1 = "\\" + url1
-                    try:
-                        file_content = index.mdd_lookup(url1)[0]
-                    except:
-                        func = url.split(r"://")[0]
-                        if func == "entry":
-                            continue
-                        url1 = url.split(r"://")[1]
-                        url1 = url1.replace("/", "\\")
-
-                        if not url1.startswith("\\"):
-                            url1 = "\\" + url1
-                        file_content = index.mdd_lookup(url1)[0]
-                        if func == "sound":
-
-                            base64_content = base64.b64encode(file_content).decode(
-                                "utf-8"
-                            )
-                            import uuid
-
-                            uid = str(uuid.uuid4())
-                            # with open(uid+'.mp3','wb') as ff:
-                            #     ff.write(file_content)
-                            audio = f'<audio controls id="{uid}" style="display: none"><source src="data:{self.get_mime_type_from_magic(file_content)};base64,{base64_content}"></audio>'
-                            html_content = audio + html_content.replace(
-                                url,
-                                f"javascript:document.getElementById('{uid}').play()",
-                            )
-                            file_content = None
-                            oked = True
-                        else:
-                            print(url)
+                file_content = self.tryloadurl(index, base, url)
             except:
-                file_content = None
-            if file_content:
-                base64_content = base64.b64encode(file_content).decode("utf-8")
-                if iscss:
-                    html_content = html_content.replace(
-                        url, f"data:text/css;base64,{base64_content}"
-                    )
-                else:
-                    html_content = html_content.replace(
-                        url, f"data:application/octet-stream;base64,{base64_content}"
-                    )
-            elif not oked:
-                print(url)
-        return html_content
-
-    def search(self, word):
-        allres = []
-        for index, f in self.builders:
-            results = []
-            # print(f)
-            try:
-                keys = self.querycomplex(word, index.get_mdx_keys)
-                # print(keys)
-                for k in keys:
-                    content = index.mdx_lookup(k)[0]
-                    match = re.match("@@@LINK=(.*)", content.strip())
-                    if match:
-                        match = match.groups()[0]
-                        content = index.mdx_lookup(match)[0]
-                    results.append(self.parseashtml(content))
-            except:
-                from traceback import print_exc
-
-                print_exc()
-            if len(results) == 0:
+                print("unknown", url)
                 continue
+            if not file_content:
+                print(url)
+                continue
+            _type, file_content = file_content
+            if _type == -1:
+                continue
+            elif _type == 1:
+                html_content = self.tryparsecss(html_content, url, file_content, divid)
+            elif _type == 2:
+                html_content = self.parseaudio(html_content, url, file_content)
+            elif _type == 0:
+                base64_content = base64.b64encode(file_content).decode("utf-8")
+                html_content = html_content.replace(
+                    url, f"data:application/octet-stream;base64,{base64_content}"
+                )
+        return f'<div id="{divid}">{html_content}</div>'
 
-            for i in range(len(results)):
-                results[i] = self.repairtarget(index, os.path.dirname(f), results[i])
-            # <img src="/rjx0849.png" width="1080px"><br><center> <a href="entry://rjx0848">
-            # /rjx0849.png->mddkey \\rjx0849.png entry://rjx0848->跳转到mdxkey rjx0849
-            # 太麻烦，不搞了。
-            allres.append((f, "".join(results)))
-        if len(allres) == 0:
-            return
+    def searchthread_internal(self, index, k, __safe):
+        allres = []
+        if k in __safe:  # 避免循环引用
+            return []
+        __safe.append(k)
+        for content in index.mdx_lookup(k):
+            match = re.match("@@@LINK=(.*)", content.strip())
+            if match:
+                match = match.groups()[0]
+                allres += self.searchthread_internal(index, match, __safe)
+            else:
+                allres.append(content)
+        return allres
+
+    def searchthread(self, allres, i, word):
+        f, index = self.builders[i]
+        results = []
+        try:
+            keys = self.querycomplex(word, self.getdistance(f), index.get_mdx_keys)
+            # print(keys)
+            for k in keys:
+                __safe = []
+                for content in set(self.searchthread_internal(index, k, __safe)):
+                    results.append(self.parseashtml(content))
+        except:
+            from traceback import print_exc
+
+            print_exc()
+        for i in range(len(results)):
+            results[i] = self.repairtarget(index, os.path.dirname(f), results[i])
+        if len(results):
+            allres.append(
+                (
+                    self.getpriority(f),
+                    self.getFoldFlow(f),
+                    self.gettitle(f, index),
+                    "".join(results),
+                )
+            )
+
+    def generatehtml_tabswitch(self, allres):
+        btns = []
+        contents = []
+        idx = 0
+        for _, foldflow, title, res in allres:
+            idx += 1
+            btns.append(
+                f"""<button type="button" onclick="onclickbtn_mdict_internal('buttonid_mdict_internal{idx}')" id="buttonid_mdict_internal{idx}" class="tab-button_mdict_internal" data-tab="tab_mdict_internal{idx}">{title}</button>"""
+            )
+            contents.append(
+                f"""<div id="tab_mdict_internal{idx}" class="tab-pane_mdict_internal">{res}</div>"""
+            )
         commonstyle = """
 <script>
 function onclickbtn_mdict_internal(_id) {
@@ -2608,14 +2515,14 @@ function onclickbtn_mdict_internal(_id) {
 
 .tab-widget_mdict_internal .tab-button_mdict_internal {
     padding: 10px 20px;
-    background-color: #ccc;
+    background-color: #cccccccc;
     border: none;
     cursor: pointer;
     display: inline-block;
 }
 
 .tab-widget_mdict_internal .tab-button_mdict_internal.active {
-    background-color: #f0f0f0;
+    background-color: #cccccc44;
 }
 
 .tab-widget_mdict_internal .tab-content_mdict_internal .tab-pane_mdict_internal {
@@ -2628,28 +2535,16 @@ function onclickbtn_mdict_internal(_id) {
 </style>
 """
 
-        btns = []
-        contents = []
-        idx = 0
-        for f, res in allres:
-            idx += 1
-            ff = os.path.basename(f)[:-4]
-            btns.append(
-                f"""<button type="button" onclick="onclickbtn_mdict_internal('buttonid_mdict_internal{idx}')" id="buttonid_mdict_internal{idx}" class="tab-button_mdict_internal" data-tab="tab_mdict_internal{idx}">{ff}</button>"""
-            )
-            contents.append(
-                f"""<div id="tab_mdict_internal{idx}" class="tab-pane_mdict_internal">{res}</div>"""
-            )
         res = f"""
     {commonstyle}
 <div class="tab-widget_mdict_internal">
-    <div class="centerdiv_mdict_internal">
-        <div class="tab-buttons_mdict_internal" id="tab_buttons_mdict_internal">
+
+    <div class="centerdiv_mdict_internal"><div>
         {''.join(btns)}
-        </div>
+    </div>
     </div>
     <div>
-        <div class="tab-content_mdict_internal" id="tab_contents_mdict_internal">
+        <div class="tab-content_mdict_internal">
             {''.join(contents)}
         </div>
     </div>
@@ -2660,3 +2555,74 @@ document.querySelectorAll('.tab-widget_mdict_internal .tab-button_mdict_internal
 </script>
 """
         return res
+
+    def generatehtml_flow(self, allres):
+        content = """<style>.collapsible-list {
+        list-style: none;
+        padding: 0;
+    }
+    
+    .collapsible-header {
+        background-color: #dddddd50;
+        padding: 10px;
+        cursor: pointer;
+        border: 1px solid #ddd;
+        border-bottom: none;
+    }
+    
+    .collapsible-content {
+        display: none;
+        padding: 10px;
+        border: 1px solid #ddd;
+    }</style>"""
+        content += """
+<script>
+function mdict_flowstyle_clickcallback(_id)
+{
+content = document.getElementById(_id).nextElementSibling;
+if (content.style.display === 'block') {
+    content.style.display = 'none';
+} else {
+    content.style.display = 'block';
+}
+}</script>"""
+        lis = []
+
+        for _, foldflow, title, res in allres:
+            extra = "display: block;"
+            if foldflow:
+                extra = "display: none;"
+            uid = str(uuid.uuid4())
+            lis.append(
+                rf"""<li><div class="collapsible-header" id="{uid}" onclick="mdict_flowstyle_clickcallback('{uid}')">{title}</div><div class="collapsible-content" style="{extra}">
+               {res}
+            </div></li>"""
+            )
+        content += rf"""
+<ul class="collapsible-list">
+         {''.join(lis)}
+    </ul>"""
+
+        return content
+
+    def search(self, word):
+        allres = []
+        # threads = []
+        # for i in range(len(self.builders)):
+        #     threads.append(
+        #         threading.Thread(target=self.searchthread, args=(allres, i, word))
+        #     )
+
+        # for _ in threads:
+        #     _.start()
+        # for _ in threads:
+        #     _.join()
+        for i in range(len(self.builders)):
+            self.searchthread(allres, i, word)
+        if len(allres) == 0:
+            return
+        allres.sort(key=lambda _: -_[0])
+        if self.config["stylehv"] == 0:
+            return self.generatehtml_tabswitch(allres)
+        elif self.config["stylehv"] == 1:
+            return self.generatehtml_flow(allres)

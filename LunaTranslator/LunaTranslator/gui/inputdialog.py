@@ -1,31 +1,24 @@
-import functools
-from PyQt5.QtWidgets import (
-    QDialogButtonBox,
-    QDialog,
-    QHeaderView,
-    QComboBox,
-    QFormLayout,
-    QDoubleSpinBox,
-    QSpinBox,
-    QHBoxLayout,
-    QLineEdit,
-    QFileDialog,
-    QPushButton,
-    QLabel,
-    QTableView,
-    QVBoxLayout,
-)
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QCloseEvent, QStandardItem, QStandardItemModel
-
-import qtawesome, importlib
+from qtsymbols import *
+import functools, importlib
+from traceback import print_exc
+import qtawesome
 from myutils.config import globalconfig, _TR, _TRL
-from gui.usefulwidget import MySwitch, selectcolor, getsimpleswitch, threebuttons
 from myutils.utils import makehtml
-from myutils.wrapper import Singleton
+from myutils.wrapper import Singleton_close
+from gui.usefulwidget import (
+    MySwitch,
+    selectcolor,
+    getsimpleswitch,
+    threebuttons,
+    listediterline,
+    getsimplepatheditor,
+    FocusSpin,
+    FocusDoubleSpin,
+    FocusCombo,
+)
 
 
-@Singleton
+@Singleton_close
 class noundictconfigdialog1(QDialog):
     def newline(self, row, item):
         self.model.insertRow(
@@ -36,12 +29,47 @@ class noundictconfigdialog1(QDialog):
             self.model.index(row, 0), getsimpleswitch(item, "regex")
         )
 
-    def __init__(self, parent, configdict, configkey, title, label) -> None:
-        super().__init__(parent, Qt.WindowCloseButtonHint)
+    def showmenu(self, table: QTableView, _):
+        r = table.currentIndex().row()
+        if r < 0:
+            return
+        menu = QMenu(table)
+        up = QAction(_TR("上移"))
+        down = QAction(_TR("下移"))
+        menu.addAction(up)
+        menu.addAction(down)
+        action = menu.exec(table.cursor().pos())
+
+        if action == up:
+
+            self.moverank(table, -1)
+
+        elif action == down:
+            self.moverank(table, 1)
+
+    def moverank(self, table: QTableView, dy):
+        curr = table.currentIndex()
+        model = table.model()
+        target = (curr.row() + dy) % model.rowCount()
+        texts = [model.item(curr.row(), i).text() for i in range(model.columnCount())]
+
+        item = self.reflist.pop(curr.row())
+        self.reflist.insert(
+            target, {"key": texts[1], "value": [2], "regex": item["regex"]}
+        )
+        model.removeRow(curr.row())
+        model.insertRow(target, [QStandardItem(text) for text in texts])
+        table.setCurrentIndex(model.index(target, curr.column()))
+        table.setIndexWidget(
+            model.index(target, 0), getsimpleswitch(self.reflist[target], "regex")
+        )
+
+    def __init__(self, parent, reflist, title, label) -> None:
+        super().__init__(parent, Qt.WindowType.WindowCloseButtonHint)
 
         self.setWindowTitle(_TR(title))
         # self.setWindowModality(Qt.ApplicationModal)
-
+        self.reflist = reflist
         formLayout = QVBoxLayout(self)  # 配置layout
 
         self.model = QStandardItemModel()
@@ -49,12 +77,18 @@ class noundictconfigdialog1(QDialog):
         table = QTableView(self)
         table.setModel(self.model)
 
-        table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
-        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        table.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeMode.ResizeToContents
+        )
+        table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        table.customContextMenuRequested.connect(
+            functools.partial(self.showmenu, table)
+        )
 
         self.table = table
-        for row, item in enumerate(configdict[configkey]):
+        for row, item in enumerate(reflist):
             self.newline(row, item)
 
         search = QHBoxLayout()
@@ -79,55 +113,62 @@ class noundictconfigdialog1(QDialog):
         button4.clicked.connect(clicked4)
         search.addWidget(button4)
 
-        button = threebuttons()
+        button = threebuttons(texts=["添加行", "删除行", "上移", "下移", "立即应用"])
 
         def clicked1():
-            self.configdict[configkey].insert(
-                0, {"key": "", "value": "", "regex": False}
-            )
-            self.newline(0, self.configdict[configkey][0])
+            self.reflist.insert(0, {"key": "", "value": "", "regex": False})
+            self.newline(0, self.reflist[0])
 
         button.btn1clicked.connect(clicked1)
 
         def clicked2():
-            self.model.removeRow(table.currentIndex().row())
-            self.configdict[configkey].pop(table.currentIndex().row())
+            skip = []
+            for index in self.table.selectedIndexes():
+                if index.row() in skip:
+                    continue
+                skip.append(index.row())
+            skip = reversed(sorted(skip))
+
+            for row in skip:
+                self.model.removeRow(row)
+                self.reflist.pop(row)
 
         button.btn2clicked.connect(clicked2)
-        button.btn3clicked.connect(self.apply)
+        button.btn5clicked.connect(self.apply)
+        button.btn3clicked.connect(functools.partial(self.moverank, table, -1))
+        button.btn4clicked.connect(functools.partial(self.moverank, table, 1))
         self.button = button
-        self.configdict = configdict
-        self.configkey = configkey
         formLayout.addWidget(table)
         formLayout.addLayout(search)
         formLayout.addWidget(button)
+
         self.resize(QSize(600, 400))
         self.show()
 
     def apply(self):
         rows = self.model.rowCount()
-        rowoffset = 0
         dedump = set()
+        needremoves = []
         for row in range(rows):
             k, v = self.model.item(row, 1).text(), self.model.item(row, 2).text()
             if k == "" or k in dedump:
-                self.configdict[self.configkey].pop(row - rowoffset)
-                rowoffset += 1
+                needremoves.append(row)
                 continue
-            self.configdict[self.configkey][row - rowoffset].update(
-                {"key": k, "value": v}
-            )
+            self.reflist[row].update({"key": k, "value": v})
             dedump.add(k)
+        for row in reversed(needremoves):
+            self.model.removeRow(row)
+            self.reflist.pop(row)
 
     def closeEvent(self, a0: QCloseEvent) -> None:
         self.button.setFocus()
         self.apply()
 
 
-@Singleton
+@Singleton_close
 class regexedit(QDialog):
     def __init__(self, parent, regexlist) -> None:
-        super().__init__(parent, Qt.WindowCloseButtonHint)
+        super().__init__(parent, Qt.WindowType.WindowCloseButtonHint)
         self.regexlist = regexlist
         self.setWindowTitle(_TR("正则匹配"))
 
@@ -138,13 +179,13 @@ class regexedit(QDialog):
         table = QTableView(self)
         table.setModel(self.model)
 
-        table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
 
         self.table = table
         for row, regex in enumerate(regexlist):
             self.model.insertRow(row, [QStandardItem(regex)])
 
-        button = threebuttons()
+        button = threebuttons(texts=["添加行", "删除行", "立即应用"])
 
         def clicked1():
             regexlist.insert(0, "")
@@ -153,9 +194,16 @@ class regexedit(QDialog):
         button.btn1clicked.connect(clicked1)
 
         def clicked2():
-            self.model.removeRow(table.currentIndex().row())
-            regexlist.pop(table.currentIndex().row())
+            skip = []
+            for index in self.table.selectedIndexes():
+                if index.row() in skip:
+                    continue
+                skip.append(index.row())
+            skip = reversed(sorted(skip))
 
+            for row in skip:
+                self.model.removeRow(row)
+                regexlist.pop(row)
         button.btn2clicked.connect(clicked2)
         button.btn3clicked.connect(self.apply)
         self.button = button
@@ -166,16 +214,20 @@ class regexedit(QDialog):
 
     def apply(self):
         rows = self.model.rowCount()
-        rowoffset = 0
         dedump = set()
+        needremoves = []
         for row in range(rows):
             regex = self.model.item(row, 0).text()
             if regex == "" or regex in dedump:
-                self.regexlist.pop(row - rowoffset)
-                rowoffset += 1
+                needremoves.append(row)
                 continue
-            self.regexlist[row - rowoffset] = regex
+
+            self.regexlist[row] = regex
             dedump.add(regex)
+
+        for row in reversed(needremoves):
+            self.model.removeRow(row)
+            self.regexlist.pop(row)
 
     def closeEvent(self, _) -> None:
         self.button.setFocus()
@@ -194,10 +246,10 @@ def autoinitdialog_items(dic):
     return items
 
 
-@Singleton
+@Singleton_close
 class autoinitdialog(QDialog):
     def __init__(self, parent, title, width, lines, _=None) -> None:
-        super().__init__(parent, Qt.WindowCloseButtonHint)
+        super().__init__(parent, Qt.WindowType.WindowCloseButtonHint)
 
         self.setWindowTitle(_TR(title))
         self.resize(QSize(width, 10))
@@ -210,26 +262,13 @@ class autoinitdialog(QDialog):
                 l[0][l[1]] = l[2]()
             self.close()
             if callback:
-                callback()
+                try:
+                    callback()
+                except:
+                    print_exc()
 
-        def openfiledirectory(multi, edit, isdir, filter1="*.*"):
-            if isdir:
-                f = QFileDialog.getExistingDirectory(directory=edit.text())
-                res = f
-            else:
-                if multi:
-                    f = QFileDialog.getOpenFileNames(
-                        directory=edit.text(), filter=filter1
-                    )
-                    res = "|".join(f[0])
-                else:
-                    f = QFileDialog.getOpenFileName(
-                        directory=edit.text(), filter=filter1
-                    )
-                    res = f[0]
-
-            if res != "":
-                edit.setText(res)
+        def __getv(l):
+            return l
 
         for line in lines:
             if "d" in line:
@@ -243,8 +282,15 @@ class autoinitdialog(QDialog):
                     lineW.setOpenExternalLinks(True)
                 else:
                     lineW = QLabel(_TR(dd[key]))
+            elif line["type"] == "textlist":
+                __list = dd[key]
+                e = listediterline(_TR(line["name"]), _TR(line["header"]), __list)
+
+                regist.append([dd, key, functools.partial(__getv, __list)])
+                lineW = QHBoxLayout()
+                lineW.addWidget(e)
             elif line["type"] == "combo":
-                lineW = QComboBox()
+                lineW = FocusCombo()
                 if "list_function" in line:
                     try:
                         func = getattr(
@@ -257,60 +303,63 @@ class autoinitdialog(QDialog):
                 else:
                     items = line["list"]
                 lineW.addItems(_TRL(items))
-                lineW.setCurrentIndex(dd[key])
+                lineW.setCurrentIndex(dd.get(key, 0))
                 lineW.currentIndexChanged.connect(
                     functools.partial(dd.__setitem__, key)
                 )
             elif line["type"] == "okcancel":
-                lineW = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+                lineW = QDialogButtonBox(
+                    QDialogButtonBox.StandardButton.Ok
+                    | QDialogButtonBox.StandardButton.Cancel
+                )
                 lineW.rejected.connect(self.close)
                 lineW.accepted.connect(
-                    functools.partial(
-                        save, None if "callback" not in line else line["callback"]
-                    )
+                    functools.partial(save, line.get("callback", None))
                 )
 
-                lineW.button(QDialogButtonBox.Ok).setText(_TR("确定"))
-                lineW.button(QDialogButtonBox.Cancel).setText(_TR("取消"))
-            elif line["type"] == "lineedit":
-                try:
-                    lineW = QLineEdit(dd[key])
-                    regist.append([dd, key, lineW.text])
-                except:
-                    # 被废弃的参数若为int型但失去argstype注释会崩溃，直接continue;
-                    continue
-            elif line["type"] == "file":
-                e = QLineEdit(dd[key])
-                regist.append([dd, key, e.text])
-                bu = QPushButton(_TR("选择" + ("文件夹" if line["dir"] else "文件")))
-                bu.clicked.connect(
-                    functools.partial(
-                        openfiledirectory,
-                        line.get("multi", False),
-                        e,
-                        line["dir"],
-                        "" if line["dir"] else line.get("filter", None),
-                    )
+                lineW.button(QDialogButtonBox.StandardButton.Ok).setText(_TR("确定"))
+                lineW.button(QDialogButtonBox.StandardButton.Cancel).setText(
+                    _TR("取消")
                 )
-                lineW = QHBoxLayout()
-                lineW.addWidget(e)
-                lineW.addWidget(bu)
+            elif line["type"] == "lineedit":
+                lineW = QLineEdit(dd[key])
+                regist.append([dd, key, lineW.text])
+            elif line["type"] == "file":
+                __temp = {"k": dd[key]}
+                lineW = getsimplepatheditor(
+                    dd[key],
+                    line.get("multi", False),
+                    line["dir"],
+                    line.get("filter", None),
+                    callback=functools.partial(__temp.__setitem__, "k"),
+                    reflist=__temp["k"],
+                    name=line.get("name", ""),
+                    header=line.get("name", ""),
+                )
+
+                regist.append([dd, key, functools.partial(__temp.__getitem__, "k")])
+
             elif line["type"] == "switch":
                 lineW = MySwitch(sign=dd[key])
                 regist.append([dd, key, lineW.isChecked])
+                _ = QHBoxLayout()
+                _.addStretch()
+                _.addWidget(lineW)
+                _.addStretch()
+                lineW = _
             elif line["type"] == "spin":
-                lineW = QDoubleSpinBox()
-                lineW.setMinimum(0 if "min" not in line else line["min"])
-                lineW.setMaximum(100 if "max" not in line else line["max"])
-                lineW.setSingleStep(0.1 if "step" not in line else line["step"])
+                lineW = FocusDoubleSpin()
+                lineW.setMinimum(line.get("min", 0))
+                lineW.setMaximum(line.get("max", 100))
+                lineW.setSingleStep(line.get("step", 0.1))
                 lineW.setValue(dd[key])
                 lineW.valueChanged.connect(functools.partial(dd.__setitem__, key))
 
             elif line["type"] == "intspin":
-                lineW = QSpinBox()
-                lineW.setMinimum(0 if "min" not in line else line["min"])
-                lineW.setMaximum(100 if "max" not in line else line["max"])
-                lineW.setSingleStep(1 if "step" not in line else line["step"])
+                lineW = FocusSpin()
+                lineW.setMinimum(line.get("min", 0))
+                lineW.setMaximum(line.get("max", 100))
+                lineW.setSingleStep(line.get("step", 1))
                 lineW.setValue(dd[key])
                 lineW.valueChanged.connect(functools.partial(dd.__setitem__, key))
             if "name" in line:
@@ -341,17 +390,17 @@ def getsomepath1(
     )
 
 
-@Singleton
+@Singleton_close
 class multicolorset(QDialog):
     def __init__(self, parent) -> None:
-        super().__init__(parent, Qt.WindowCloseButtonHint)
+        super().__init__(parent, Qt.WindowType.WindowCloseButtonHint)
         self.setWindowTitle(_TR("颜色设置"))
         self.resize(QSize(300, 10))
         formLayout = QFormLayout(self)  # 配置layout
         _hori = QHBoxLayout()
-        l = QLabel(_TR("透明度"))
+        l = QLabel(_TR("不透明度"))
         _hori.addWidget(l)
-        _s = QSpinBox()
+        _s = FocusSpin()
         _s.setValue(globalconfig["showcixing_touming"])
         _s.setMinimum(1)
         _s.setMaximum(100)
@@ -394,7 +443,7 @@ class multicolorset(QDialog):
         self.show()
 
 
-@Singleton
+@Singleton_close
 class postconfigdialog_(QDialog):
     def closeEvent(self, a0: QCloseEvent) -> None:
         if self.closeevent:
@@ -411,7 +460,7 @@ class postconfigdialog_(QDialog):
         self.configdict[self.key] = newdict
 
     def __init__(self, parent, configdict, title) -> None:
-        super().__init__(parent, Qt.WindowCloseButtonHint)
+        super().__init__(parent, Qt.WindowType.WindowCloseButtonHint)
         print(title)
         self.setWindowTitle(_TR(title))
         # self.setWindowModality(Qt.ApplicationModal)
@@ -419,9 +468,6 @@ class postconfigdialog_(QDialog):
         formLayout = QVBoxLayout(self)  # 配置layout
 
         key = list(configdict.keys())[0]
-        lb = QLabel(self)
-        lb.setText(_TR(key))
-        formLayout.addWidget(lb)
 
         model = QStandardItemModel(len(configdict[key]), 1, self)
         row = 0
@@ -438,10 +484,10 @@ class postconfigdialog_(QDialog):
         table = QTableView(self)
         table.setModel(model)
         table.setWordWrap(False)
-        table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        # table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        # table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         # table.clicked.connect(self.show_info)
-        button = threebuttons()
+        button = threebuttons(texts=["添加行", "删除行", "立即应用"])
 
         def clicked1():
             model.insertRow(0, [QStandardItem(), QStandardItem()])
@@ -449,8 +495,15 @@ class postconfigdialog_(QDialog):
         button.btn1clicked.connect(clicked1)
 
         def clicked2():
+            skip = []
+            for index in table.selectedIndexes():
+                if index.row() in skip:
+                    continue
+                skip.append(index.row())
+            skip = reversed(sorted(skip))
 
-            model.removeRow(table.currentIndex().row())
+            for row in skip:
+                model.removeRow(row)
 
         button.btn2clicked.connect(clicked2)
         button.btn3clicked.connect(self.apply)

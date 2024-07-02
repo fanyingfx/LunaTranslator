@@ -1,13 +1,8 @@
-from PyQt5.QtWidgets import QPushButton, QVBoxLayout, QFileDialog
-from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QTextEdit, QWidget
-
-from PyQt5.QtGui import QTextCursor
-from PyQt5.QtCore import Qt
+from qtsymbols import *
+import os, gobject
 from myutils.config import _TR, globalconfig
-from gui.usefulwidget import saveposwindow
 from myutils.wrapper import Singleton_close
-from winsharedutils import showintab
-import os
+from gui.usefulwidget import saveposwindow
 
 
 @Singleton_close
@@ -27,25 +22,22 @@ class dialog_memory(saveposwindow):
 
         super().__init__(
             parent,
-            flags=Qt.WindowCloseButtonHint | Qt.WindowMinMaxButtonsHint,
-            dic=globalconfig,
-            key="memorydialoggeo",
+            flags=Qt.WindowType.WindowCloseButtonHint
+            | Qt.WindowType.WindowMinMaxButtonsHint,
+            poslist=globalconfig["memorydialoggeo"],
         )
         self.setWindowTitle(_TR("备忘录"))
-        if globalconfig["showintab_sub"]:
-            showintab(int(self.winId()), True)
         self.gamemd5 = gamemd5
         formLayout = QVBoxLayout()  #
         self.showtext = QTextEdit()
-        os.makedirs("./userconfig/memory", exist_ok=True)
-        self.rwpath = "./userconfig/memory/{}.html".format(gamemd5)
+        self.rwpath = gobject.getuserconfigdir("memory/{}.html".format(gamemd5))
         try:
             with open(self.rwpath, "r", encoding="utf8") as ff:
                 text = ff.read()
         except:
             text = ""
         self.showtext.insertHtml(text)
-        self.showtext.moveCursor(QTextCursor.Start)
+        self.showtext.moveCursor(QTextCursor.MoveOperation.Start)
         formLayout.addWidget(self.showtext)
 
         x = QHBoxLayout()

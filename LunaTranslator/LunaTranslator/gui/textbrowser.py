@@ -1,770 +1,90 @@
-from PyQt5.QtCore import Qt, QPoint, QPointF, pyqtSignal
-from PyQt5.QtGui import (
-    QTextCharFormat,
-    QTextBlockFormat,
-    QResizeEvent,
-    QTextCursor,
-    QPixmap,
-    QFontMetricsF,
-    QMouseEvent,
-)
-from PyQt5.QtWidgets import (
-    QTextBrowser,
-    QLabel,
-    QGraphicsDropShadowEffect,
-)
-import functools
-from myutils.config import globalconfig
-from traceback import print_exc
-from PyQt5.QtGui import (
-    QPainter,
-    QColor,
-    QFont,
-    QPen,
-    QPainterPath,
-    QBrush,
-    QFontMetrics,
-)
-
-
-class Qlabel_c(QLabel):
-
-    def mousePressEvent(self, ev):
-        self.pr = True
-        return super().mousePressEvent(ev)
-
-    def mouseMoveEvent(self, ev):
-        pass
-        # return super().mouseMoveEvent(ev)
-
-    def mouseReleaseEvent(self, event: QMouseEvent):
-        try:
-            if self.underMouse():
-                try:
-                    if self.pr:
-                        if event.button() == Qt.RightButton:
-                            self.callback(True)
-                        else:
-                            self.callback(False)
-                except:
-                    print_exc()
-            self.pr = False
-        except:
-            print_exc()
-        return super().mouseReleaseEvent(event)
-
-    def enterEvent(self, a0) -> None:
-        if self.company:
-            self.company.setStyleSheet("background-color: rgba(0,0,0,0.5);")
-        self.setStyleSheet("background-color: rgba(0,0,0,0.5);")
-        return super().enterEvent(a0)
-
-    def leaveEvent(self, a0) -> None:
-        if self.company:
-            self.company.setStyleSheet("background-color: rgba(0,0,0,0.01);")
-        self.setStyleSheet("background-color: rgba(0,0,0,0.01);")
-        return super().leaveEvent(a0)
-
-
-class QGraphicsDropShadowEffect_multi(QGraphicsDropShadowEffect):
-    def __init__(self, x) -> None:
-        self.x = x
-        super().__init__()
-
-    def draw(self, painter) -> None:
-        for i in range(self.x):
-            super().draw(painter)
-
-
-class BorderedLabel(QLabel):
-    def move(self, point: QPoint):
-        self.movedx = 0
-        self.movedy = 0
-        text = self.text()
-        isarabic = any((ord(char) >= 0x0600 and ord(char) <= 0x06E0) for char in text)
-        if isarabic:
-            self.movedx -= self.width()
-        self.movedx -= self.m_fontOutLineWidth
-        self.movedy -= self.m_fontOutLineWidth
-        point.setX(int(point.x() + self.movedx))
-        point.setY(int(point.y() + self.movedy))
-        super().move(point)
-
-    def pos(self) -> QPoint:
-        p = super().pos()
-        p.setX(int(p.x() - self.movedx))
-        p.setY(int(p.y() - self.movedy))
-        return p
-
-    def clearShadow(self):
-        self.setGraphicsEffect(None)
-
-    def setShadow(self, colorshadow, width=1, deepth=1, trace=False):
-
-        shadow2 = QGraphicsDropShadowEffect_multi(deepth)
-        if trace:
-            shadow2.setBlurRadius(width)
-            shadow2.setOffset(QPointF(width, width))
-        else:
-            shadow2.setBlurRadius(width)
-            shadow2.setOffset(0)
-        shadow2.setColor(QColor(colorshadow))
-        self.setGraphicsEffect(shadow2)
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.movedy = 0
-        self.movedx = 0
-        self.m_outLineColor = QColor()
-        self.m_fontOutLineWidth = 1
-        self.m_contentColor = QColor()
-        self._type = 0
-        self._pix = None
-        self._m_text = ""
-
-    def text(self):
-        return self._m_text
-
-    def setText(self, text):
-        self._m_text = text
-
-    def setColorWidth(self, outLineColor, contentColor, width, _type=0):
-
-        self.m_outLineColor = QColor(outLineColor)
-        self.m_contentColor = QColor(contentColor)
-        self.m_fontOutLineWidth = width
-        self._type = _type
-
-    def adjustSize(self):
-        self._pix = None
-        font = self.font()
-        text = self.text()
-        font_m = QFontMetrics(font)
-        self.resize(
-            int(font_m.width(text) + 2 * self.m_fontOutLineWidth),
-            int(font_m.height() + 2 * self.m_fontOutLineWidth),
-        )
-
-    def labelresetcolor(self, color, rate=1):
-        c1 = color
-        c2 = globalconfig["miaobiancolor"]
-        if globalconfig["zitiyangshi2"] == 2:
-            self.setColorWidth(c1, c2, rate * globalconfig["miaobianwidth2"])
-            self.clearShadow()
-        elif globalconfig["zitiyangshi2"] == 3:
-            self.setColorWidth(c2, c1, rate * globalconfig["miaobianwidth2"])
-            self.clearShadow()
-        elif globalconfig["zitiyangshi2"] == 1:
-            self.setColorWidth(c1, c2, rate * globalconfig["miaobianwidth"], 1)
-            self.clearShadow()
-        elif globalconfig["zitiyangshi2"] == 4:
-            self.setColorWidth(c2, c1, rate * globalconfig["miaobianwidth2"])
-            self.setShadow(c2, rate * globalconfig["traceoffset"], 1, True)
-        elif globalconfig["zitiyangshi2"] == 0:
-            self.setColorWidth(None, c1, 0, 2)
-            self.clearShadow()
-        elif globalconfig["zitiyangshi2"] == 5:
-            self.setColorWidth(None, c2, 0, 2)
-            self.setShadow(
-                c1, rate * globalconfig["fontsize"], globalconfig["shadowforce"]
-            )
-
-    def paintEvent(self, event):
-        if not self._pix:
-            rate = self.devicePixelRatioF()
-            self._pix = QPixmap(self.size() * rate)
-            self._pix.setDevicePixelRatio(rate)
-            self._pix.fill(Qt.transparent)
-            text = self.text()
-            font = self.font()
-            font_m = QFontMetrics(font)
-            painter = QPainter(self._pix)
-
-            painter.setRenderHint(QPainter.Antialiasing)
-            path = QPainterPath()
-            if self._type == 2:
-
-                path.addText(
-                    0,
-                    font_m.ascent(),
-                    font,
-                    text,
-                )
-                painter.fillPath(path, QBrush(self.m_contentColor))
-            else:
-                path.addText(
-                    self.m_fontOutLineWidth,
-                    self.m_fontOutLineWidth + font_m.ascent(),
-                    font,
-                    text,
-                )
-
-                pen = QPen(
-                    self.m_outLineColor,
-                    self.m_fontOutLineWidth,
-                    Qt.SolidLine,
-                    Qt.RoundCap,
-                    Qt.RoundJoin,
-                )
-
-                if self._type == 0:
-                    painter.strokePath(path, pen)
-                    painter.fillPath(path, QBrush(self.m_contentColor))
-                elif self._type == 1:
-                    painter.fillPath(path, QBrush(self.m_contentColor))
-                    painter.strokePath(path, pen)
-        painter = QPainter(self)
-        painter.drawPixmap(0, 0, self._pix)
+from qtsymbols import *
+from myutils.config import globalconfig, _TR
+import importlib
+from webviewpy import webview_exception
+from gui.usefulwidget import getQMessageBox
 
 
 class Textbrowser(QLabel):
-    contentsChanged = pyqtSignal(int, int)
+    contentsChanged = pyqtSignal(QSize)
 
-    def move(self, x, y):
-        super().move(x, y)
-        self.textbrowser.move(x, y)
+    _padding = 5
 
-        self.atback2.move(x, y)
-        self.toplabel2.move(x, y)
+    def __makeborder(self, size: QSize):
+        _padding = self._padding
+        self.masklabel_right.move(self.width() - _padding, 0)
+        self.masklabel_bottom.move(0, 0 + size.height() - _padding)
+        self.masklabel_left.resize(_padding, size.height())
+        self.masklabel_right.resize(_padding, size.height())
+        self.masklabel_bottom.resize(size.width(), _padding)
 
-    def resizeEvent(self, event):
-        self.atback2.resize(event.size())
-        self.toplabel2.resize(event.size())
+    def resizeEvent(self, event: QResizeEvent):
+        _padding = self._padding
+        self.textbrowser.setGeometry(
+            _padding,
+            0,
+            event.size().width() - 2 * _padding,
+            event.size().height() - _padding,
+        )
+        self.__makeborder(event.size())
 
-    def contentchangedfunction(self):
-        sz = self.textbrowser.document().size().toSize()
-        self.textbrowser.resize(self.width(), sz.height())
-        self.contentsChanged.emit(sz.width(), sz.height())
+    def _contentsChanged(self, size: QSize):
+        self.contentsChanged.emit(QSize(size.width(), size.height()))
+
+    def loadinternal(self):
+        __ = globalconfig["rendertext_using"]
+        if __ == "QWebEngine":
+            __ = "webview"
+        try:
+            tb = importlib.import_module(f"rendertext.{__}").TextBrowser
+            self.textbrowser = tb(self)
+        except Exception as e:
+            if isinstance(e, webview_exception):
+                getQMessageBox(
+                    None,
+                    _TR("错误"),
+                    "can't find Webview2 runtime!",
+                )
+            elif isinstance(e, ImportError) or isinstance(e, ModuleNotFoundError):
+                getQMessageBox(
+                    None,
+                    _TR("错误"),
+                    "can't find QWebEngine!",
+                )
+            globalconfig["rendertext_using"] = "textbrowser"
+            tb = importlib.import_module(f"rendertext.textbrowser").TextBrowser
+            self.textbrowser = tb(self)
+
+        self.textbrowser.setMouseTracking(True)
+        self.textbrowser.contentsChanged.connect(self._contentsChanged)
 
     def __init__(self, parent):
         super().__init__(parent)
-
         self.setMouseTracking(True)
+        self.cleared = True
+        self.loadinternal()
+        self.masklabel_left = QLabel(self)
+        self.masklabel_left.setMouseTracking(True)
+        # self.masklabel_left.setStyleSheet('background-color:red')
+        self.masklabel_right = QLabel(self)
+        # self.masklabel_right.setStyleSheet('background-color:red')
+        self.masklabel_right.setMouseTracking(True)
+        self.masklabel_bottom = QLabel(self)
+        self.masklabel_bottom.setMouseTracking(True)
+        # self.masklabel_bottom.setStyleSheet('background-color:red')
 
-        self.atback2 = QLabel(parent)
-
-        self.toplabel2 = QLabel(parent)
-        self.atback2.setMouseTracking(True)
-        self.textbrowser = QTextBrowser(parent)
-        self.textbrowser.document().contentsChanged.connect(self.contentchangedfunction)
-        self.tranparentcolor = QColor()
-        self.tranparentcolor.setAlpha(0)
-        self.textbrowser.setTextColor(self.tranparentcolor)
+    def iter_append(self, iter_context_class, origin, atcenter, text, color):
+        cleared = self.cleared
         self.cleared = False
-        self.font = QFont()
-
-        self.toplabel2.setMouseTracking(True)
-
-        self.textbrowser.setStyleSheet(
-            "border-width: 0;\
-            border-style: outset;\
-            background-color: rgba(0, 0, 0, 0)"
+        self.textbrowser.iter_append(
+            iter_context_class, origin, atcenter, text, color, cleared
         )
 
-        self.textcursor = self.textbrowser.textCursor()
-        self.textbrowser.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.textbrowser.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.masklabel = QLabel(self.textbrowser)
-        self.masklabel.setGeometry(0, 0, 9999, 9999)
-        self.masklabel.setMouseTracking(True)
-
-        self.savetaglabels = []
-        self.searchmasklabels_clicked = []
-        self.searchmasklabels = []
-        self.backcolorlabels = []
-
-        self.yinyinglabels = []
-        self.yinyinglabels_idx = 0
-
-        self.yinyingpos = 0
-        self.yinyingposline = 0
-        self.lastcolor = None
-        self.setselectable()
-        self.blockcount = 0
-        self.iteryinyinglabelsave = {}
-
-    def setselectable(self):
-        self.masklabel.setHidden(globalconfig["selectable"])
-
-    def setnextfont(self, origin):
-        if origin:
-            self.font.setFamily(globalconfig["fonttype"])
-        else:
-            self.font.setFamily(globalconfig["fonttype2"])
-        self.font.setPointSizeF(globalconfig["fontsize"])
-        self.font.setBold(globalconfig["showbold"])
-
-        self.textbrowser.moveCursor(QTextCursor.End)
-        f = QTextCharFormat()
-        f.setFont(self.font)
-        f.setForeground(self.tranparentcolor)
-        c = self.textbrowser.textCursor()
-        c.setCharFormat(f)
-        self.textbrowser.setTextCursor(c)
-
-    def setAlignment(self, x):
-        self.textbrowser.setAlignment(x)
-
-    def append(self, x, tag, color):
-        if self.cleared:
-            _space = ""
-            self.blockcount = 0
-            b1 = 0
-        else:
-            _space = "\n"
-            b1 = self.textbrowser.document().blockCount()
+    def append(self, origin, atcenter, text, tag, flags, color):
+        cleared = self.cleared
         self.cleared = False
-        self.textbrowser.insertPlainText(_space + x)
-
-        b2 = self.textbrowser.document().blockCount()
-
-        fh = globalconfig["extra_space"]
-        for i in range(self.blockcount, self.textbrowser.document().blockCount()):
-            b = self.textbrowser.document().findBlockByNumber(i)
-            tf = b.blockFormat()
-            tf.setLineHeight(fh, QTextBlockFormat.LineDistanceHeight)
-            self.textcursor.setPosition(b.position())
-            self.textcursor.setBlockFormat(tf)
-            self.textbrowser.setTextCursor(self.textcursor)
-        self.blockcount = self.textbrowser.document().blockCount()
-
-        if len(tag) > 0:
-            self.addtag(tag)
-
-        self.showyinyingtext(b1, b2, color)
-
-    def getcurrpointer(self):
-        return self.textcursor.position()
-
-    def insertatpointer(self, pointer, text):
-        self.textcursor.setPosition(pointer)
-        self.textbrowser.setTextCursor(self.textcursor)
-        self.textbrowser.insertPlainText(text)
-
-    def deletebetween(self, p1, p2):
-        self.textcursor.setPosition(p1, QTextCursor.MoveAnchor)
-        self.textcursor.setPosition(p2, QTextCursor.KeepAnchor)
-        self.textcursor.removeSelectedText()
-
-    def showyinyingtext2(self, color, iter_context_class, pos, text):
-        if iter_context_class not in self.iteryinyinglabelsave:
-            self.iteryinyinglabelsave[iter_context_class] = [[], 0]
-        maxh = 0
-        maxh2 = 9999999
-        for label in self.iteryinyinglabelsave[iter_context_class][0]:
-            maxh2 = min(label.pos().y(), maxh2)
-            if label.isVisible() == False:
-                continue
-            label.hide()
-            maxh = max(label.pos().y(), maxh)
-
-        subtext = []
-        subpos = []
-        lastpos = None
-        posx = pos
-        for i in range(len(text)):
-            self.textcursor.setPosition(posx)
-            posx += 1
-            tl1 = self.textbrowser.cursorRect(self.textcursor).topLeft()
-            if lastpos is None or tl1.y() != lastpos.y() or text[i] == "\n":
-                lastpos = tl1
-                subpos.append(lastpos)
-                subtext.append("")
-            subtext[-1] += text[i]
-
-        maxnewh = 0
-        for i in range(len(subtext)):
-            if self.iteryinyinglabelsave[iter_context_class][1] >= len(
-                self.iteryinyinglabelsave[iter_context_class][0]
-            ):
-                self.iteryinyinglabelsave[iter_context_class][0].append(
-                    BorderedLabel(self.toplabel2)
-                )
-            maxnewh = max(maxnewh, subpos[i].y())
-            _ = self.iteryinyinglabelsave[iter_context_class][0][
-                self.iteryinyinglabelsave[iter_context_class][1]
-            ]
-            _.labelresetcolor(color)
-            _.setText(subtext[i])
-            _.setFont(self.font)
-            _.adjustSize()
-            _.move(subpos[i])
-            _.show()
-            self.iteryinyinglabelsave[iter_context_class][1] += 1
-
-        if maxh:
-            if maxnewh == 0:
-                maxnewh = maxh2
-            for label in self.yinyinglabels:
-                if label.isVisible() == False:
-                    continue
-                if label.pos().y() > maxh:
-                    label.move(
-                        QPoint(label.pos().x(), label.pos().y() + maxnewh - maxh)
-                    )
-            for klass in self.iteryinyinglabelsave:
-                if klass == iter_context_class:
-                    continue
-                for label in self.iteryinyinglabelsave[klass][0]:
-                    if label.isVisible() == False:
-                        continue
-                    if label.pos().y() > maxh:
-                        label.move(
-                            QPoint(label.pos().x(), label.pos().y() + maxnewh - maxh)
-                        )
-
-    def showyinyingtext(self, b1, b2, color):
-        linei = self.yinyingposline
-
-        doc = self.textbrowser.document()
-        block = doc.findBlockByNumber(0)
-
-        for blocki in range(b1, b2):
-            block = doc.findBlockByNumber(blocki)
-            layout = block.layout()
-            blockstart = block.position()
-            lc = layout.lineCount()
-            for lineii in range(lc):
-                line = layout.lineAt(lineii)
-
-                s = line.textStart()
-                l = line.textLength()
-                self.textcursor.setPosition(blockstart + s)
-                self.textbrowser.setTextCursor(self.textcursor)
-                tl1 = self.textbrowser.cursorRect(self.textcursor).topLeft()
-
-                if self.yinyinglabels_idx >= len(self.yinyinglabels):
-                    self.yinyinglabels.append(BorderedLabel(self.toplabel2))
-                _ = self.yinyinglabels[self.yinyinglabels_idx]
-                self.yinyinglabels_idx += 1
-                _.labelresetcolor(color)
-                _.setText(block.text()[s : s + l])
-                _.setFont(self.font)
-                _.adjustSize()
-                _.move(tl1)
-                _.show()
-                linei += 1
-        self.yinyingposline = linei
-
-    def addsearchwordmask(self, x, raw, callback=None):
-        if len(x) == 0:
-            return
-        # print(x)
-        pos = 0
-        labeli = 0
-        self.textcursor.setPosition(0)
-        self.textbrowser.setTextCursor(self.textcursor)
-
-        idx = 0
-        guesswidth = []
-        guesslinehead = None
-        wwww = self.width()
-        heigth, __, _ = self.getfh(False)
-        for word in x:
-            idx += 1
-            l = len(word["orig"])
-            tl1 = self.textbrowser.cursorRect(self.textcursor).topLeft()
-
-            tl4 = self.textbrowser.cursorRect(self.textcursor).bottomRight()
-            if guesslinehead is None:
-                guesslinehead = tl1.x()
-            if True:
-                self.textcursor.setPosition(pos + l)
-                self.textbrowser.setTextCursor(self.textcursor)
-
-                tl2 = self.textbrowser.cursorRect(self.textcursor).bottomRight()
-                tl3 = self.textbrowser.cursorRect(self.textcursor).topLeft()
-                color = self.randomcolor(word)
-                if color:
-                    if word["orig"] not in ["\n", " ", ""]:
-                        if labeli >= len(self.searchmasklabels) - 1:
-                            ql = QLabel(self.atback2)
-                            ql.setMouseTracking(True)
-                            self.searchmasklabels.append(ql)
-
-                            ql = Qlabel_c(self.textbrowser)
-                            ql.setMouseTracking(True)
-                            ql.setStyleSheet("background-color: rgba(0,0,0,0.01);")
-                            self.searchmasklabels_clicked.append(ql)
-
-                            ql = QLabel(self.atback2)
-                            ql.setMouseTracking(True)
-                            self.searchmasklabels.append(ql)
-
-                            ql = Qlabel_c(self.textbrowser)
-                            ql.setMouseTracking(True)
-                            ql.setStyleSheet("background-color: rgba(0,0,0,0.01);")
-                            self.searchmasklabels_clicked.append(ql)
-                        if tl1.y() != tl3.y():
-                            if len(guesswidth) == 0:
-                                gw = 30
-                            else:
-                                gw = sum(guesswidth) / len(guesswidth)
-                            guesswidth1 = gw * len(word["orig"])
-                            tailx = wwww - guesslinehead
-                            pos1 = (
-                                tl1.x() + 1,
-                                tl1.y(),
-                                tailx - tl1.x() - 2,
-                                int(heigth),
-                            )
-                            xx = int(guesswidth1 - (tailx - tl1.x()))
-                            guesslinehead = None
-                            pos2 = tl3.x() + 1 - xx, tl3.y(), xx - 2, int(heigth)
-                            if (
-                                globalconfig["usesearchword"]
-                                or globalconfig["usecopyword"]
-                            ):
-                                self.searchmasklabels_clicked[labeli].setGeometry(*pos1)
-                                self.searchmasklabels_clicked[labeli].show()
-                                self.searchmasklabels_clicked[labeli].company = (
-                                    self.searchmasklabels_clicked[labeli + 1]
-                                )
-                                if callback:
-                                    self.searchmasklabels_clicked[labeli].callback = (
-                                        functools.partial(callback, (word))
-                                    )
-
-                                self.searchmasklabels_clicked[labeli + 1].setGeometry(
-                                    *pos2
-                                )
-                                self.searchmasklabels_clicked[labeli + 1].show()
-                                self.searchmasklabels_clicked[labeli + 1].company = (
-                                    self.searchmasklabels_clicked[labeli]
-                                )
-                                if callback:
-                                    self.searchmasklabels_clicked[
-                                        labeli + 1
-                                    ].callback = functools.partial(callback, (word))
-
-                            if globalconfig["show_fenci"]:
-                                self.searchmasklabels[labeli].setGeometry(*pos1)
-                                self.searchmasklabels[labeli].setStyleSheet(
-                                    "background-color: rgba{};".format(color)
-                                )
-                                self.searchmasklabels[labeli].show()
-
-                                self.searchmasklabels[labeli + 1].setGeometry(*pos2)
-                                self.searchmasklabels[labeli + 1].setStyleSheet(
-                                    "background-color: rgba{};".format(color)
-                                )
-                                self.searchmasklabels[labeli + 1].show()
-                            labeli += 2
-                        else:
-
-                            guesswidth += [(tl2.x() - tl1.x()) / len(word["orig"])] * (
-                                len(word["orig"])
-                            )
-                            pos1 = (
-                                tl1.x() + 1,
-                                tl1.y(),
-                                tl2.x() - tl1.x() - 2,
-                                int(heigth),
-                            )
-                            if (
-                                globalconfig["usesearchword"]
-                                or globalconfig["usecopyword"]
-                            ):
-                                self.searchmasklabels_clicked[labeli].setGeometry(*pos1)
-                                self.searchmasklabels_clicked[labeli].company = None
-                                self.searchmasklabels_clicked[labeli].show()
-                                if callback:
-                                    self.searchmasklabels_clicked[labeli].callback = (
-                                        functools.partial(callback, word)
-                                    )
-                            if globalconfig["show_fenci"]:
-                                self.searchmasklabels[labeli].setGeometry(*pos1)
-                                self.searchmasklabels[labeli].setStyleSheet(
-                                    "background-color: rgba{};".format(color)
-                                )
-                                self.searchmasklabels[labeli].show()
-                            labeli += 1
-
-                else:
-                    if tl1.y() != tl3.y():
-                        guesslinehead = None
-                tl1 = tl3
-                tl4 = tl2
-
-                pos += l
-
-    def randomcolor(self, word):
-        c = QColor("white")
-        if "cixing" in word:
-            try:
-                if globalconfig["cixingcolorshow"][word["cixing"]] == False:
-                    return None
-                c = QColor(globalconfig["cixingcolor"][word["cixing"]])
-            except:
-                pass
-        return (c.red(), c.green(), c.blue(), globalconfig["showcixing_touming"] / 100)
-
-    def getfh(self, half, origin=True):
-
-        font = QFont()
-        font.setBold(globalconfig["showbold"])
-        if origin:
-            font.setFamily(globalconfig["fonttype"])
-        else:
-            font.setFamily(globalconfig["fonttype2"])
-
-        # font.setPixelSize(int(globalconfig['fontsize'])  )
-        if half:
-            font.setPointSizeF((globalconfig["fontsize"]) * globalconfig["kanarate"])
-        else:
-            font.setPointSizeF((globalconfig["fontsize"]))
-        fm = QFontMetricsF(font)
-
-        return fm.height(), fm.ascent(), font
-
-    def addtag(self, x):
-        pos = 0
-
-        fasall, _, fontorig = self.getfh(False)
-        fha, fascent, fonthira = self.getfh(True)
-        for i in range(0, self.textbrowser.document().blockCount()):
-            b = self.textbrowser.document().findBlockByNumber(i)
-
-            tf = b.blockFormat()
-            tf.setLineHeight(fasall + fha, QTextBlockFormat.FixedHeight)
-            self.textcursor.setPosition(b.position())
-            self.textcursor.setBlockFormat(tf)
-            self.textbrowser.setTextCursor(self.textcursor)
-        x = self.nearmerge(x, pos, fonthira, fontorig)
-        self.settextposcursor(pos)
-        savetaglabels_idx = 0
-        for word in x:
-            l = len(word["orig"])
-
-            tl1 = self.textbrowser.cursorRect(self.textcursor).topLeft()
-
-            self.settextposcursor(pos + l)
-            pos += l
-
-            tl2 = self.textbrowser.cursorRect(self.textcursor).topLeft()
-            if word["hira"] == word["orig"]:
-                continue
-            # print(tl1,tl2,word['hira'],self.textbrowser.textCursor().position())
-            if word["orig"] == " ":
-                continue
-            if savetaglabels_idx >= len(self.savetaglabels):
-                self.savetaglabels.append(BorderedLabel(self.atback2))
-            self.solvejiaminglabel(
-                self.savetaglabels[savetaglabels_idx], word, fonthira, tl1, tl2, fascent
-            )
-            savetaglabels_idx += 1
-
-    def settextposcursor(self, pos):
-        self.textcursor.setPosition(pos)
-        self.textbrowser.setTextCursor(self.textcursor)
-
-    def nearmerge(self, x, startpos, fonthira, fontorig):
-        pos = startpos
-        linex = []
-        newline = []
-        self.settextposcursor(pos)
-        _metrichira = QFontMetricsF(fonthira)
-        _metricorig = QFontMetricsF(fontorig)
-        for i, word in enumerate(x):
-            word["orig_w"] = _metricorig.width(word["orig"])
-            word["hira_w"] = _metrichira.width(word["hira"])
-            # print(word['hira'],word['hira_w'])
-            newline.append(word)
-
-            l = len(word["orig"])
-            tl1 = self.textbrowser.cursorRect(self.textcursor).topLeft()
-            self.settextposcursor(pos + l)
-            pos += l
-
-            tl2 = self.textbrowser.cursorRect(self.textcursor).topLeft()
-
-            # print(tl1,tl2,word['hira'],self.textbrowser.textCursor().position())
-
-            if tl1.y() != tl2.y() or i == len(x) - 1:
-                linex.append(newline)
-                newline = []
-        res = []
-        for line in linex:
-
-            while True:
-                allnotbig = True
-                newline = []
-                canmerge = False
-                for word in line:
-                    if (
-                        word["hira"] == word["orig"]
-                        or word["hira"] == ""
-                        or word["orig"] == ""
-                    ):
-                        newline.append(word.copy())
-                        canmerge = False
-                    else:
-                        if (
-                            len(newline) > 0
-                            and canmerge
-                            and (
-                                word["hira_w"] + newline[-1]["hira_w"]
-                                > word["orig_w"] + newline[-1]["orig_w"]
-                            )
-                        ):
-                            # print(word['hira'],word['hira_w'],newline[-1]['hira_w'],word['orig_w'],newline[-1]['orig_w'])
-                            newline[-1]["hira"] += word["hira"]
-                            newline[-1]["orig"] += word["orig"]
-                            newline[-1]["hira_w"] += word["hira_w"]
-                            newline[-1]["orig_w"] += word["orig_w"]
-                            allnotbig = False
-                        else:
-                            newline.append(word.copy())
-                        canmerge = True
-                line = newline
-                if allnotbig:
-                    break
-            res += newline
-            newline = []
-        self.settextposcursor(startpos)
-        return res
-
-    def solvejiaminglabel(self, _: BorderedLabel, word, font, tl1, tl2, fh):
-        _.labelresetcolor(globalconfig["jiamingcolor"], rate=globalconfig["kanarate"])
-        _.setText(word["hira"])
-        _.setFont(font)
-        _.adjustSize()
-        w = _.width()
-
-        if tl1.y() != tl2.y():
-            # print(label,word)
-            x = tl1.x()
-            if x + w / 2 < self.textbrowser.width():
-                x = tl1.x()
-                y = tl1.y() - fh
-            else:
-                x = tl2.x() - w
-                y = tl2.y() - fh
-        else:
-            x = tl1.x() / 2 + tl2.x() / 2 - w / 2
-            y = tl2.y() - fh
-
-        _.move(QPoint(int(x), int(y)))
-
-        _.show()
-        return _
+        self.textbrowser.append(origin, atcenter, text, tag, flags, color, cleared)
 
     def clear(self):
-        for label in self.searchmasklabels:
-            label.hide()
-        for label in self.searchmasklabels_clicked:
-            label.hide()
-        for label in self.savetaglabels:
-            label.hide()
-
-        self.yinyinglabels_idx = 0
-        for label in self.yinyinglabels:
-            label.hide()
-        for klass, labels in self.iteryinyinglabelsave.items():
-            for label in labels[0]:
-                label.hide()
-            labels[1] = 0
-        self.yinyingpos = 0
-        self.yinyingposline = 0
         self.cleared = True
         self.textbrowser.clear()
